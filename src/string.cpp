@@ -91,4 +91,4 @@ StringImpl* StringImpl::allocate(Ref<String>&& other) {
     return other.toPtr();
 }
 
-}
+}  // namespace twitchsw

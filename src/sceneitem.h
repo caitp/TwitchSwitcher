@@ -33,4 +33,4 @@ private:
     static std::list<String> g_games;
 };
 
-}
+}  // namespace twitchsw

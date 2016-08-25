@@ -138,4 +138,4 @@ private:
     char m_bytes[1];
 };
 
-}
+}  // twitchsw

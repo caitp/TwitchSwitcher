@@ -86,4 +86,4 @@ UpdateEventImpl::~UpdateEventImpl() {
 }
 
 
-}
+}  // namespace twitchsw

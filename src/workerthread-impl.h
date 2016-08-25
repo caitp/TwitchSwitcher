@@ -67,4 +67,4 @@ private:
     void cleanup();
 };
 
-}
+}  // namespace twitchsw

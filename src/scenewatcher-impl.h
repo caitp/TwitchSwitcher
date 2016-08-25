@@ -100,4 +100,4 @@ private:
     static bool scanForStreamingServicesProc(void* param, obs_service_t* service);
 };
 
-}
+}  // namespace twitchsw

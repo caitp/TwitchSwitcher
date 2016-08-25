@@ -26,4 +26,4 @@ public:
     static void addSettingsIfNeeded(obs_source_t* source);
 };
 
-}
+}  // namespace twitchsw

@@ -187,4 +187,4 @@ private:
     long m_refs;
 };
 
-}
+}  // namespace twitchsw

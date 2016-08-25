@@ -314,4 +314,4 @@ obs_sceneitem_t* SceneImpl::takeFirstTwitchSceneItem(obs_source_t* scene) {
     return item;
 }
 
-}
+}  // namespace twitchsw

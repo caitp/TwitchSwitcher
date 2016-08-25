@@ -66,4 +66,4 @@ private:
     static WorkerThreadImpl* m_impl;
 };
 
-};
+}  // namespace twitchsw

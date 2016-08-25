@@ -26,4 +26,4 @@ private:
     SceneWatcherImpl* m_impl = nullptr;
 };
 
-}
+}  // namespace twitchsw
