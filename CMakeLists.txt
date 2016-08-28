@@ -1,10 +1,19 @@
+# Copyright (C) 2016 Caitlin Potter & Contributors. All rights reserved.
+# Use of this source is governed by the Apache License, Version 2.0 that
+# can be found in the LICENSE file, which must be distributed with this
+# software.
+
 cmake_minimum_required(VERSION 3.0)
 project(twitchsw)
+
+option(TSW_BUILD_TESTS "Enable building unittests" ON)
 
 include(FindCURL)
 
 set(twitchsw_LIBS)
 set(twitchsw_INCLUDES)
+
+list(APPEND twitchsw_INCLUDES "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/include")
 
 # Find libobs
 find_package(libobs REQUIRED COMPONENTS libobs)
@@ -35,25 +44,49 @@ set(DEBUG_DIR "${CMAKE_BINARY_DIR}/out-Debug")
 set(PLUGINS_DIR "obs-plugins/${BITNESS}bit/")
 set(DATA_DIR "data/obs-plugins/${PROJECT_NAME}/")
 
+set(RAPIDJSON_BUILD_DOC 0)
+set(RAPIDJSON_BUILD_TESTS 0)
+set(RAPIDJSON_BUILD_EXAMPLES 0)
+add_subdirectory(third_party/rapidjson EXCLUDE_FROM_ALL)
+include_directories(third_party/rapidjson/include)
+
+add_definitions(-DRAPIDJSON_HAS_STDSTRING)
+
 set(twitchsw_HEADERS
-    src/twitchsw.h
-    src/http.h
-    src/refs.h
-    src/sceneitem.h
-    src/scenewatcher.h
-    src/scenewatcher-impl.h
-    src/string.h
-    src/workerthread.h
-    src/workerthread-impl.h)
+    include/twitchsw/twitchsw.h
+    include/twitchsw/http.h
+    include/twitchsw/refs.h
+    include/twitchsw/sceneitem.h
+    include/twitchsw/scenewatcher.h
+    include/twitchsw/string.h
+    include/twitchsw/webview.h
+    include/twitchsw/workerthread.h)
 
 set(twitchsw_SOURCES
     src/twitchsw.cpp
     src/http.cpp
+    src/macros-impl.h
     src/sceneitem.cpp
+    src/scenewatcher-impl.h
     src/scenewatcher.cpp
     src/string.cpp
+    src/webview.cpp
+    src/workerthread-impl.h
     src/workerthread.cpp
     .editorconfig)
+
+if(WIN32)
+add_definitions(-DTSW_WIN32)
+
+# IInternetExplorer ActiveX implementation of WebViewImpl
+list(APPEND twitchsw_SOURCES
+     src/windows/webview-windows.cpp)
+list(APPEND twitchsw_HEADERS
+     src/windows/eventsink.h
+     src/windows/cominterfaces.h
+     src/windows/webview-windows.h)
+add_definitions(-DTSW_WEBVIEW_WIN32)
+endif(WIN32)
 
 set(twitchsw_DATA
     locale/en-US.ini)
@@ -92,3 +125,16 @@ set_target_properties(twitchsw
     RUNTIME_OUTPUT_DIRECTORY "${DEBUG_DIR}/${PLUGINS_DIR}")
 
 add_custom_command(TARGET twitchsw POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory data "${DEBUG_DIR}/${DATA_DIR}")
+
+if(TSW_BUILD_TESTS)
+  set(BUILD_GTEST ON)
+  set(BUILD_GMOCK OFF)
+  if (WIN32)
+    set(gtest_disable_pthreads ON)
+    set(gtest_force_shared_crt ON)
+  endif(WIN32)
+  add_subdirectory(third_party/gtest EXCLUDE_FROM_ALL)
+
+  enable_testing()
+  add_subdirectory(test)
+endif(TSW_BUILD_TESTS)
