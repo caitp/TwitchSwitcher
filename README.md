@@ -7,7 +7,7 @@ A plugin for [obs-studio](https://github.com/jp9000/obs-studio), which enables a
 1. Install [CMake](https://cmake.org/)
 2. Check out and build [obs-studio sources](https://github.com/jp9000/obs-studio) [instructions](https://github.com/jp9000/obs-studio/wiki/Install-Instructions)
 3. Get libcurl development files (such as from https://curl.haxx.se/download.html)
-4. Run [tools/update-dependencies.sh] (or .bat on windows) to update git submodules
+4. Run [tools/update-dependencies.sh](tools/update-dependencies.sh) (or .bat on windows) to update git submodules
 5. configure and generate your CMake project (easiest using cmake-gui)
 6. open your project file, or `make -j32` or `ninja -C out/Release` whatever it is you like to do on your platform
 7. Copy the output files into your obs-studio installation
