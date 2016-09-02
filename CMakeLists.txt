@@ -39,14 +39,19 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(BITNESS 64)
 endif()
 
+if(CMAKE_CL_64)
+  enable_language(ASM_MASM)
+endif(CMAKE_CL_64)
+
 set(RELEASE_DIR "${CMAKE_BINARY_DIR}/out-Release")
 set(DEBUG_DIR "${CMAKE_BINARY_DIR}/out-Debug")
 set(PLUGINS_DIR "obs-plugins/${BITNESS}bit/")
 set(DATA_DIR "data/obs-plugins/${PROJECT_NAME}/")
 
-set(RAPIDJSON_BUILD_DOC 0)
-set(RAPIDJSON_BUILD_TESTS 0)
-set(RAPIDJSON_BUILD_EXAMPLES 0)
+# rapidjson https://github.com/miloyip/rapidjson
+set(RAPIDJSON_BUILD_DOC FALSE)
+set(RAPIDJSON_BUILD_TESTS FALSE)
+set(RAPIDJSON_BUILD_EXAMPLES FALSE)
 add_subdirectory(third_party/rapidjson EXCLUDE_FROM_ALL)
 include_directories(third_party/rapidjson/include)
 
@@ -80,11 +85,21 @@ add_definitions(-DTSW_WIN32)
 
 # IInternetExplorer ActiveX implementation of WebViewImpl
 list(APPEND twitchsw_SOURCES
-     src/windows/webview-windows.cpp)
-list(APPEND twitchsw_HEADERS
-     src/windows/eventsink.h
-     src/windows/cominterfaces.h
-     src/windows/webview-windows.h)
+     src/windows/webview-windows.cpp
+     src/windows/webview-windows.h
+     src/windows/CDispatch.cpp
+     src/windows/CDispatch.h
+     src/windows/CDocHostShowUI.cpp
+     src/windows/CDocHostShowUI.h
+     src/windows/CDocHostUIHandler.cpp
+     src/windows/CDocHostUIHandler.h
+     src/windows/COleClientSite.cpp
+     src/windows/COleClientSite.h
+     src/windows/COleInPlaceFrame.cpp
+     src/windows/COleInPlaceFrame.h
+     src/windows/COleInPlaceSite.cpp
+     src/windows/COleInPlaceSite.h
+     src/windows/COM.h)
 add_definitions(-DTSW_WEBVIEW_WIN32)
 endif(WIN32)
 

@@ -9,9 +9,16 @@
 #include <obs.hpp>
 #include <obs-module.h>
 
-#include "scenewatcher.h"
-#include "workerthread.h"
-#include "http.h"
+#include <twitchsw/scenewatcher.h>
+#include <twitchsw/workerthread.h>
+#include <twitchsw/http.h>
+#include <twitchsw/webview.h>
+
+#ifdef _DEBUG
+#include <rapidjson/reader.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/prettywriter.h>
+#endif
 
 using namespace twitchsw;
 
@@ -47,12 +54,39 @@ MODULE_EXPORT bool obs_module_load(void) {
 
     LOG(LOG_INFO, "Started up");
     TwitchSwitcher::initializeSceneItem();
+    WebView::initialize();
     g_worker.start();
     g_watcher.start();
     return true;
 }
 
 MODULE_EXPORT void obs_module_unload(void) {
+    WebView::shutdown();
     g_watcher.terminate();
     g_worker.terminate();
+}
+
+//
+//
+//
+void TwitchSwitcher::prettyPrintJSON(const std::string& string) {
+    return prettyPrintJSON(string.c_str(), string.length());
+}
+void TwitchSwitcher::prettyPrintJSON(Ref<String> string) {
+    return prettyPrintJSON(string->c_str(), string->length());
+}
+void TwitchSwitcher::prettyPrintJSON(const char* str, size_t length) {
+#ifdef _DEBUG
+    using namespace rapidjson;
+    Reader reader;
+    CrtAllocator allocator;
+    StringStream is(str);
+    StringBuffer buffer(&allocator, length + 256);
+    PrettyWriter<StringBuffer> prettyWriter(buffer);
+    prettyWriter.SetIndent(' ', 4);
+    reader.Parse(is, prettyWriter);
+    buffer.GetString();
+
+    LOG(LOG_DEBUG, "%s", buffer.GetString());
+#endif
 }

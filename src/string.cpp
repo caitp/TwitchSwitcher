@@ -3,7 +3,7 @@
 // can be found in the LICENSE file, which must be distributed with this
 // software.
 
-#include "string.h"
+#include <twitchsw/string.h>
 
 namespace twitchsw {
 

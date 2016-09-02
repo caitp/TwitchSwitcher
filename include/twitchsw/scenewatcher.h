@@ -5,9 +5,9 @@
 
 #pragma once
 
-#include "twitchsw.h"
-#include "refs.h"
-#include "string.h"
+#include <twitchsw/twitchsw.h>
+#include <twitchsw/refs.h>
+#include <twitchsw/string.h>
 
 namespace twitchsw {
 

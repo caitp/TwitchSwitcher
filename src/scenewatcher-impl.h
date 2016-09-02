@@ -7,8 +7,8 @@
 
 #include <list>
 
-#include "scenewatcher.h"
-#include "refs.h"
+#include <twitchsw/scenewatcher.h>
+#include <twitchsw/refs.h>
 
 #include <obs.h>
 
@@ -38,6 +38,7 @@ private:
     void connectSignalHandlers();
     void disconnectSignalHandlers();
     static obs_sceneitem_t* takeFirstTwitchSceneItem(obs_source_t* source);
+    static bool takeFirstTwitchSceneItemProc(obs_scene_t* scene, obs_sceneitem_t* item, void* param);
 
     // Signal handlers:
     // void item_add(ptr scene : obs_scene_t, ptr item : obs_sourceitem_t)

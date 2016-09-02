@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "refs.h"
+#include <twitchsw/refs.h>
 
 #include <string>
 

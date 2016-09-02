@@ -5,17 +5,23 @@
 
 #pragma once
 
-#include "workerthread.h"
+#include <twitchsw/workerthread.h>
 
 #include <list>
 #include <mutex>
 #include <thread>
+#include <future>
 
 namespace twitchsw {
 
 struct MessageData {
     WorkerThread::Message message;
     Ref<EventData> param;
+};
+
+struct AuthStatus {
+    HttpResponse response;
+    std::string accessToken;
 };
 
 class WorkerThreadImpl {
@@ -47,6 +53,8 @@ private:
     std::condition_variable m_didReceiveMessage;
     std::mutex m_messageListMutex;
     std::list<MessageData> m_messageList;
+    std::string m_accessToken;
+
     void run();
 
     static void runImpl(WorkerThreadImpl* worker) {
@@ -63,7 +71,9 @@ private:
         return true;
     }
 
+    std::future<AuthStatus> authenticateIfNeeded();
     void update(UpdateEvent&& data);
+    void updateInternal(const std::string& accessToken, const Ref<String> game, const Ref<String> title);
     void cleanup();
 };
 

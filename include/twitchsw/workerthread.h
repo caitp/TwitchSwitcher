@@ -7,9 +7,9 @@
 
 #include <string>
 
-#include "twitchsw.h"
-#include "string.h"
-#include "refs.h"
+#include <twitchsw/twitchsw.h>
+#include <twitchsw/string.h>
+#include <twitchsw/refs.h>
 
 struct obs_output;
 
@@ -25,17 +25,15 @@ TSW_DECLARE_REF_CLASS(EventData, EventDataImpl);
 
 class UpdateEventImpl : public EventDataImpl {
 public:
-    UpdateEventImpl(struct obs_output* output, String&& game, String&& title);
+    UpdateEventImpl(String&& game, String&& title);
     ~UpdateEventImpl() override;
 
     TSW_BASIC_ALLOCATOR(UpdateEventImpl);
 
-    struct obs_output* output() const { return m_output; }
     Ref<String> game() const { return m_game; }
     Ref<String> title() const { return m_title; }
 
 private:
-    struct obs_output* m_output;
     Ref<String> m_game;
     Ref<String> m_title;
 };

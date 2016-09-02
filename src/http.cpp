@@ -7,8 +7,8 @@
 
 #include <curl/curl.h>
 
-#include "twitchsw.h"
-#include "http.h"
+#include <twitchsw/twitchsw.h>
+#include <twitchsw/http.h>
 
 #ifdef min
 #undef min
@@ -35,9 +35,29 @@ public:
         curl = curl_easy_init();
         if (curl == nullptr) return -1;
 
+        std::string reqUrl = url;
+        int params = 0;
+        for (auto it : parameters) {
+            auto value = it.value;
+            std::string result = it.name;
+
+            if (!value.empty()) {
+                char* escaped = curl_easy_escape(curl, value.c_str(), static_cast<int>(value.length()));
+                if (!escaped)
+                    continue;
+                result += "=" + std::string(escaped);
+                curl_free(escaped);
+            }
+
+            if (params++)
+                reqUrl += "&" + result;
+            else
+                reqUrl += "?" + result;
+        }
+
         CURLcode res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_URL, reqUrl.c_str());
         curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
         curl_easy_setopt(curl, CURLOPT_DNS_USE_GLOBAL_CACHE, false);
         curl_easy_setopt(curl, CURLOPT_DNS_CACHE_TIMEOUT, 2);
@@ -46,16 +66,43 @@ public:
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CURLRequest::receiveData);
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
         if (method != "GET") {
-            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
+            if (body.length()) {
+                curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+            }
+            if (method == "PUT")
+                curl_easy_setopt(curl, CURLOPT_PUT, 1L);
+            else if (method == "POST")
+                curl_easy_setopt(curl, CURLOPT_POST, 1L);
+            else
+                curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
             curl_easy_setopt(curl, CURLOPT_READDATA, this);
             curl_easy_setopt(curl, CURLOPT_READFUNCTION, CURLRequest::sendData);
         }
 
+    retry:
         res = curl_easy_perform(curl);
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+
+        if (status >= 300 && status <= 303 && onRedirect) {
+            char* redirectUrl = nullptr;
+            // Redirect occurred --- Call the on redirect callback.
+            if (curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &redirectUrl) == CURLE_OK) {
+                OnRedirect command = onRedirect(std::string(redirectUrl), buffer);
+                if (command == OnRedirect::Follow) {
+                    curl_easy_setopt(curl, CURLOPT_URL, redirectUrl);
+                    buffer.clear();
+                    goto retry;
+                }
+                if (command == OnRedirect::Finish) {
+                    buffer.clear();
+                }
+            }
+        }
+
         if (res != CURLE_OK) {
-            LOG_HTTP(LOG_DEBUG, "`%s %s` (%d) failed: %s", method.c_str(), url.c_str(), status, curl_easy_strerror(res));
+            LOG_HTTP(LOG_DEBUG, "`%s %s` (%d) failed: %s", method.c_str(), reqUrl.c_str(), status, curl_easy_strerror(res));
         } else {
-            LOG_HTTP(LOG_DEBUG, "`%s %` (%d)", method.c_str(), url.c_str(), status);
+            LOG_HTTP(LOG_DEBUG, "`%s %s` (%d)", method.c_str(), reqUrl.c_str(), status);
         }
 
         return static_cast<int>(status);
@@ -69,6 +116,11 @@ public:
         }
     }
 
+    void setParameters(const std::list<URLQueryParameter>& requestParameters) {
+        if (curl != nullptr) return;
+        parameters = requestParameters;
+    }
+
     void setMethod(const std::string& requestMethod) {
         method = requestMethod;
     }
@@ -77,6 +129,9 @@ public:
         body = requestBody;
     }
 
+    void setOnRedirect(const OnRedirectCallback& callback) {
+        onRedirect = callback;
+    }
     const std::string& content() const { return buffer; }
 
 private:
@@ -103,6 +158,8 @@ private:
     std::string buffer;
     struct curl_slist* headers = nullptr;
     size_t cursor = 0;
+    std::list<URLQueryParameter> parameters;
+    OnRedirectCallback onRedirect;
 };
 
 bool Http::initializeCURLIfNeeded() {
@@ -120,20 +177,24 @@ void Http::Shutdown() {
     }
 }
 
-HttpResponse Http::GET(const std::string& url, const std::map<std::string, std::string>& requestHeaders) {
+HttpResponse Http::GET(const std::string& url, const HttpRequestOptions& options) {
     if (!initializeCURLIfNeeded()) return HttpResponse(-1);
 
     CURLRequest request(url);
-    request.setHeaders(requestHeaders);
+    request.setHeaders(options.m_headers);
+    request.setParameters(options.m_parameters);
+    request.setOnRedirect(options.m_onRedirect);
     int status = request.send();
     return HttpResponse(status, request.content());
 }
 
-HttpResponse Http::PUT(const std::string& url, const std::map<std::string, std::string>& requestHeaders, const std::string& body) {
+HttpResponse Http::PUT(const std::string& url, const std::string& body, const HttpRequestOptions& options) {
     if (!initializeCURLIfNeeded()) return HttpResponse(-1);
 
     CURLRequest request(url);
-    request.setHeaders(requestHeaders);
+    request.setHeaders(options.m_headers);
+    request.setParameters(options.m_parameters);
+    request.setOnRedirect(options.m_onRedirect);
     request.setMethod("PUT");
     request.setBody(body);
     int status = request.send();

@@ -3,9 +3,12 @@
 // can be found in the LICENSE file, which must be distributed with this
 // software.
 
-#include "workerthread.h"
+#include <twitchsw/workerthread.h>
+#include <twitchsw/sceneitem.h>
+
 #include "scenewatcher-impl.h"
-#include "obs-source.h"
+
+#include <obs-source.h>
 
 extern twitchsw::SceneWatcher g_watcher;
 
@@ -233,7 +236,7 @@ Ref<Scene> SceneWatcherImpl::findScene(obs_source_t* source) {
 //
 
 SceneImpl::SceneImpl(SceneWatcherImpl* impl, obs_source_t* scene)
-    : RefCounted(), m_impl(impl), m_source(scene) {
+    : RefCounted(), m_impl(impl), m_source(scene), m_item(nullptr) {
     connectSignalHandlers();
     if (!m_item)
         m_item = takeFirstTwitchSceneItem(m_source);
@@ -296,21 +299,38 @@ void SceneImpl::onActivate(void* userdata, calldata_t* calldata) {
 }
 
 void SceneImpl::updateIfNeeded() {
+    TSWSceneItem* item = TSWSceneItem::fromSceneItem(m_item);
+    if (item == nullptr) return;
+
+    Ref<String> game = item->game();
+    Ref<String> title = item->title();
     LOG(LOG_DEBUG, "Updating stream '%s'", obs_source_get_name(m_source));
-    WorkerThread::update(UpdateEvent(nullptr, "meow", "hello"));
+    WorkerThread::update(UpdateEvent(game, title));
 }
 
 //
 //
 //
 bool SceneImpl::isTwitchSceneItem(obs_sceneitem_t* item) {
-    return false;
+    if (!item)
+        return false;
+
+    obs_source_t* source = obs_sceneitem_get_source(item);
+    return TSWSceneItem::fromSource(source) != nullptr;
 }
 
 
+bool SceneImpl::takeFirstTwitchSceneItemProc(obs_scene_t* scene, obs_sceneitem_t* item, void* param) {
+    if (!isTwitchSceneItem(item))
+        return true;
+
+    *static_cast<obs_sceneitem_t**>(param) = item;
+    return false;
+}
+
 obs_sceneitem_t* SceneImpl::takeFirstTwitchSceneItem(obs_source_t* scene) {
     obs_sceneitem_t* item = nullptr;
-
+    obs_scene_enum_items(obs_scene_from_source(scene), takeFirstTwitchSceneItemProc, &item);
     return item;
 }
 
