@@ -13,6 +13,8 @@ A plugin for [obs-studio](https://github.com/jp9000/obs-studio), which enables a
 7. Copy the output files into your obs-studio installation
 8. Try it out
 
+TwitchSwitcher depends on modern C++ features, such as lambdas and std::promise. Remember to use a modern libc++ implementation, or a modern version of Visual Studio, to build this thing.
+
 ##Usage
 
 This plugin adds a new Scene Item to obs-studio, which contains properties specifying a game name and channel status (or title). When switching to a scene with such a scene item, a request is sent to the Twitch API to update the channel with those fields. The fields are optional, and if blank, will not be included in the request to the server.
