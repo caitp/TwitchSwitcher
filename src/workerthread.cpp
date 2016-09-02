@@ -267,9 +267,6 @@ void WorkerThreadImpl::update(UpdateEvent&& data) {
     } catch (const SimpleException& e) {
         LOG(LOG_WARNING, "Authorization failed: %s. Please file a bug at https://github.com/caitp/TwitchSwitcher", e.reason().c_str());
         return;
-    } catch (const std::future_error& e) {
-        LOG(LOG_WARNING, "caitp is using Promises / Futures incorrectly:) %s", e.what());
-        return;
     }
 
     return updateInternal(accessToken, game, title);
