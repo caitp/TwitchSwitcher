@@ -236,7 +236,6 @@ WebContent::WebContent(WebViewImpl* impl) {
     m_hwnd = nullptr;
     m_browser = nullptr;
     m_cookie = 0;
-    //m_browserEvents2 = nullptr;
     m_didFinishRequest = false;
     m_isNavigating = false;
     m_onComplete = m_impl->m_onComplete;
