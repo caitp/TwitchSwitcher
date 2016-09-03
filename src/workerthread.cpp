@@ -267,6 +267,11 @@ void WorkerThreadImpl::update(UpdateEvent&& data) {
     } catch (const SimpleException& e) {
         LOG(LOG_WARNING, "Authorization failed: %s. Please file a bug at https://github.com/caitp/TwitchSwitcher", e.reason().c_str());
         return;
+    } catch (const std::future_error& e) {
+        if (e.code() == std::future_errc::broken_promise) {
+            LOG(LOG_WARNING, "Aborted getting access token.");
+        }
+        return;
     }
 
     return updateInternal(accessToken, game, title);

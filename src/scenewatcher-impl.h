@@ -28,7 +28,7 @@ public:
 
     static bool isTwitchSceneItem(obs_sceneitem_t* item);
 
-    void updateIfNeeded();
+    void updateIfNeeded(bool force = false);
 
 private:
     SceneWatcherImpl* m_impl;
@@ -69,6 +69,10 @@ public:
 
     bool isStreaming();
 
+    void setCurrentScene(Ref<Scene> scene) {
+        m_currentScene = scene;
+    }
+
     void scanForStreamingOutputs();
     void scanForStreamingServices();
     bool getTwitchCredentials(Ref<String>& key);
@@ -77,6 +81,7 @@ public:
 
 private:
     std::list<Scene> m_scenes;
+    Ref<Scene> m_currentScene;
     obs_weak_output_t* m_streamingOutput = nullptr;
     obs_weak_service_t* m_streamingService = nullptr;
     bool m_streaming = false;
@@ -92,6 +97,9 @@ private:
     // void source_remove(ptr source : obs_source_t)
     // void source_destroy(ptr source : obs_source_t)
     static void removeSourceIfNeeded(void* userdata, calldata_t* calldata);
+
+    // void start(ptr output : obs_output_t)
+    static void onStartStreaming(void* userdata, calldata_t* calldata);
 
     // Helpers
     static bool isTwitchStream(obs_output_t* output);

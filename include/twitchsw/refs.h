@@ -114,6 +114,13 @@ public:
     }
     void deref() { m_data->deref(); }
 
+    inline bool operator==(const Ref<T>& other) const {
+        if (m_data == other.m_data)
+            return true;
+        // TODO(caitp): support using T::RefCountedType's operator== as fallback if the pointer check fails
+        return false;
+    }
+    inline bool operator!=(const Ref<T>& other) const { return !(*this == other); }
     inline bool isNull() const { return m_data == nullptr; }
     inline operator bool() const { return !isNull(); }
     inline operator typename T::RefCountedType*() { return m_data; }

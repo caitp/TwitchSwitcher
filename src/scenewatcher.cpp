@@ -66,6 +66,7 @@ bool SceneWatcherImpl::isTwitchStream(obs_service_t* service) {
     const std::string twitchUrlSuffix(".twitch.tv/app");
 
     std::string url = obs_service_get_url(service);
+
     // Only use service if it is a  Twitch stream
     return std::equal(twitchUrlPrefix.begin(), twitchUrlPrefix.end(), url.begin()) &&
         std::equal(twitchUrlSuffix.rbegin(), twitchUrlSuffix.rend(), url.rbegin());
@@ -78,7 +79,9 @@ bool SceneWatcherImpl::isTwitchStream(obs_output_t* output) {
     if (service == nullptr)
         return false;
 
-    return isTwitchStream(service);
+    bool result = isTwitchStream(service);
+    obs_service_release(service);
+    return result;
 }
 
 // static
@@ -90,6 +93,9 @@ bool SceneWatcherImpl::scanForStreamingOutputsProc(void* param, obs_output_t* ou
 
     if (!isTwitchStream(output) && std::string(name) != "simple_stream")
         return true;
+
+    signal_handler_t* signals = obs_output_get_signal_handler(output);
+    signal_handler_connect(signals, "start", onStartStreaming, impl);
 
     impl->m_streamingOutput = obs_output_get_weak_output(output);
     return false;
@@ -179,6 +185,35 @@ void SceneWatcherImpl::removeSourceIfNeeded(void* userdata, calldata_t* calldata
 }
 
 
+// Called in response to `start` of obs_output_t. We use this to update the twitch status and game on stream start,
+// if needed
+void SceneWatcherImpl::onStartStreaming(void* userdata, calldata_t* calldata) {
+    SceneWatcherImpl* impl = static_cast<SceneWatcherImpl*>(userdata);
+    obs_output_t* output;
+    if (!calldata_get_ptr(calldata, "output", &output))
+        return;
+
+    do {
+        if (impl->m_streamingOutput == nullptr)
+            break;
+
+        obs_output_t* currentOutput = obs_weak_output_get_output(impl->m_streamingOutput);
+        if (currentOutput != output) {
+            obs_weak_output_release(impl->m_streamingOutput);
+            impl->m_streamingOutput = nullptr;
+            break;
+        }
+
+        if (impl->m_currentScene)
+            impl->m_currentScene->updateIfNeeded(true);
+        return;
+    } while (0);
+
+    signal_handler_t* signals = obs_output_get_signal_handler(output);
+    signal_handler_disconnect(signals, "start", onStartStreaming, impl);
+}
+
+
 void SceneWatcherImpl::addScene(obs_source_t* scene) {
     if (findScene(scene).isNull()) {
         Scene newScene(this, scene);
@@ -192,6 +227,8 @@ void SceneWatcherImpl::removeScene(obs_source_t* scene) {
         Ref<Scene> foundScene = *it;
         if (foundScene->source() == scene) {
             m_scenes.erase(it);
+            if (foundScene == m_currentScene)
+                m_currentScene = Ref<Scene>();
             return;
         }
     }
@@ -219,6 +256,9 @@ bool SceneWatcherImpl::isStreaming() {
         m_streamingOutput = nullptr;
         return false;
     }
+
+
+
     return true;
 }
 
@@ -292,15 +332,23 @@ void SceneImpl::onRemoveSceneItem(void* userdata, calldata_t* calldata) {
 }
 
 void SceneImpl::onShow(void* userdata, calldata_t* calldata) {
-    static_cast<SceneImpl*>(userdata)->updateIfNeeded();
+    SceneImpl* self = static_cast<SceneImpl*>(userdata);
+    SceneWatcherImpl* impl = self->m_impl;
+    Scene scene = Scene::fromPtr(self);
+    scene.ref();
+    impl->setCurrentScene(scene);
+    self->updateIfNeeded();
 }
 
 void SceneImpl::onActivate(void* userdata, calldata_t* calldata) {
 }
 
-void SceneImpl::updateIfNeeded() {
+void SceneImpl::updateIfNeeded(bool force) {
     TSWSceneItem* item = TSWSceneItem::fromSceneItem(m_item);
     if (item == nullptr) return;
+
+    if (!force && TwitchSwitcher::isDisabled(TwitchSwitcher::kUpdateWithoutStreaming) && !this->m_impl->isStreaming())
+        return;
 
     Ref<String> game = item->game();
     Ref<String> title = item->title();

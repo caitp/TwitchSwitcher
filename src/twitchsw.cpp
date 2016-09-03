@@ -22,12 +22,13 @@
 
 using namespace twitchsw;
 
-static bool hasStreamingOutput() {
+static bool hasStreamingOutput(std::string& id) {
     bool found = false;
     const char* outputType;
     for (int i = 0; obs_enum_output_types(i, &outputType); ++i) {
         std::string type(outputType);
         if (type == "rtmp_output") {
+            id = type;
             found = true;
             break;
         }
@@ -47,9 +48,17 @@ WorkerThread g_worker;
 SceneWatcher g_watcher;
 
 MODULE_EXPORT bool obs_module_load(void) {
-    if (!hasStreamingOutput()) {
+    std::string outputType;
+    if (!hasStreamingOutput(outputType)) {
         LOG(LOG_ERROR, "Streaming output type not found.");
         return false;
+    }
+
+    // Initialize settings now (from the main thread) in case env variables are not
+    // inherited.
+    for (int i = 0; i < TwitchSwitcher::kNumSettings; ++i) {
+        bool value = TwitchSwitcher::isEnabled((TwitchSwitcher::Setting)i);
+        TSW_UNUSED(value);
     }
 
     LOG(LOG_INFO, "Started up");
@@ -69,6 +78,8 @@ MODULE_EXPORT void obs_module_unload(void) {
 //
 //
 //
+namespace twitchsw {
+
 void TwitchSwitcher::prettyPrintJSON(const std::string& string) {
     return prettyPrintJSON(string.c_str(), string.length());
 }
@@ -90,3 +101,42 @@ void TwitchSwitcher::prettyPrintJSON(const char* str, size_t length) {
     LOG(LOG_DEBUG, "%s", buffer.GetString());
 #endif
 }
+
+// static
+bool TwitchSwitcher::isEnabled(Setting setting) {
+    static const std::string booleanFalse = "|0|no|NO|off|OFF|false|FALSE|";
+    static const std::string booleanTrue = "|1|yes|YES|on|ON|true|TRUE|";
+
+    static auto matches = [](const std::string& string, const std::string& set) {
+        if (set.find(string) != std::string::npos)
+            return true;
+        return false;
+    };
+
+
+    static auto cachedValues = makeArrayN<kNumSettings>(-1);
+
+    // TODO(caitp): just crash if a setting is out of range
+    if (setting >= 0 && setting < kNumSettings && cachedValues[setting] > -1)
+        return cachedValues[setting] != 0;
+
+    switch (setting) {
+    case kUpdateWithoutStreaming: {
+        auto envVar = std::getenv("TSW_UPDATE_WITHOUT_STREAMING");
+        if (!envVar || matches("|" + std::string(envVar) + "|", booleanFalse))
+            break;
+        goto returnTrue;
+    }
+    default:
+        return false;
+    }
+
+    cachedValues[setting] = 0;
+    return false;
+
+returnTrue:
+    cachedValues[setting] = 1;
+    return true;
+}
+
+}  // namespace twitchsw
