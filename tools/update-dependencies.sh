@@ -13,6 +13,6 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 cd "${SCRIPT_DIR}/.."
 
-git submodule update
+git submodule update --init
 
 cd "${START_DIR}"
