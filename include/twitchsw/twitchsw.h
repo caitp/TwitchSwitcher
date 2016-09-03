@@ -22,8 +22,6 @@
 #define TSW_CLIENT_ID "ne4a7nx7ne8yntm226fqlp59lilwxeh"
 #define TSW_PERMISSIONS_SCOPE "channel_read channel_editor"
 
-#define TSW_UPDATE_WITHOUT_STREAMING "TSW.UpdateWithoutStreaming"
-
 struct obs_source;
 typedef struct obs_source obs_source_t;
 namespace twitchsw {
