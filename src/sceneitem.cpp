@@ -143,6 +143,7 @@ TSWSceneItem::~TSWSceneItem() {
 void TSWSceneItem::connectSignalHandlers() {
     signal_handler_t* signals = obs_source_get_signal_handler(m_source);
     if (!signals) {
+        // FIXME: Use obs localization API
         LOG(LOG_WARNING, "Unable to connect signal handlers for SceneItem '%s'", obs_source_get_name(m_source));
         return;
     }
@@ -151,6 +152,7 @@ void TSWSceneItem::connectSignalHandlers() {
 void TSWSceneItem::disconnectSignalHandlers() {
     signal_handler_t* signals = obs_source_get_signal_handler(m_source);
     if (!signals) {
+        // FIXME: Use obs localization API
         LOG(LOG_WARNING, "Unable to disconnect signal handlers for SceneItem '%s'", obs_source_get_name(m_source));
         return;
     }
@@ -212,6 +214,7 @@ void TSWSceneItem::updateGameTitleTypeahead(obs_data_t* settings) {
         get("https://api.twitch.tv/kraken/search/games");
 
     if (response.status() != 200) {
+        // FIXME: Use obs localization API
         LOG(LOG_WARNING, "Bad HTTP response. Possibly rate-limited by Twitch API. Consider filing a bug at https://github.com/caitp/TwitchSwitcher");
         return;
     }
@@ -227,6 +230,7 @@ void TSWSceneItem::updateGameTitleTypeahead(obs_data_t* settings) {
         Document doc;
         ParseResult ok = doc.Parse(content);
         if (!ok) {
+            // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Unexpected data from api.twitch.tv/kraken/search/games. Please file a bug at https://github.com/caitp/TwitchSwitcher");
             return;
         }
@@ -255,8 +259,10 @@ void TSWSceneItem::updateGameTitleTypeahead(obs_data_t* settings) {
                 }
             }
         }
-        if (!expectedFormat)
+        if (!expectedFormat) {
+            // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Unexpected JSON schema from api.twitch.tv/kraken/search/games. Please file a bug at https://github.com/caitp/TwitchSwitcher");
+        }
     }
 #pragma endregion TODO
 }
@@ -296,6 +302,7 @@ TSWSceneItem* TSWSceneItem::fromSource(obs_source_t* source) {
         } else {
             static bool didLogBinaryCompatError = false;
             if (!didLogBinaryCompatError) {
+                // FIXME: Use obs localization API
                 LOG(LOG_WARNING, "libobs binary compat has changed. Please file a bug at https://github.com/caitp/TwitchSwitcher.");
                 didLogBinaryCompatError = true;
             }

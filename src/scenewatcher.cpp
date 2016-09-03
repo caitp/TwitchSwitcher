@@ -352,6 +352,7 @@ void SceneImpl::updateIfNeeded(bool force) {
 
     Ref<String> game = item->game();
     Ref<String> title = item->title();
+    // FIXME: Use obs localization API
     LOG(LOG_DEBUG, "Updating stream '%s'", obs_source_get_name(m_source));
     WorkerThread::update(UpdateEvent(game, title));
 }

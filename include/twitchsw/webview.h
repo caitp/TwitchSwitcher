@@ -12,6 +12,8 @@
 
 namespace twitchsw {
 
+#define TSW_WEBVIEW_DEFAULT_TITLE "WebView"
+
 class WebViewImpl;
 class WebView;
 typedef std::function<void()> _OnWebViewDestroyed;
@@ -46,13 +48,16 @@ public:
     WebView& setOnComplete(const OnCompleteCallback& callback);
     WebView& show();
     WebView& close();
+    WebView& setTitle(const std::string& title);
+    const std::string& title() const { return m_data ? m_data->m_title : TSW_WEBVIEW_DEFAULT_TITLE; }
 
 private:
     struct Data : public RefCounted<Data> {
-        Data(WebViewImpl* impl) : m_impl(impl) {}
+        Data(WebViewImpl* impl) : RefCounted<Data>(), m_impl(impl) {}
         ~Data();
         WebViewImpl* m_impl;
         OnCompleteCallback m_onComplete;
+        std::string m_title = TSW_WEBVIEW_DEFAULT_TITLE;
     };
     Data* m_data;
 

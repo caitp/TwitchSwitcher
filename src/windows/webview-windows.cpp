@@ -38,6 +38,7 @@
 enum ThreadMessages {
     kCloseWebViewUI = WM_USER + 1,
     kCreateWebViewUI,
+    kSetWebViewTitle,
 };
 
 namespace twitchsw {
@@ -55,6 +56,10 @@ const char* WebView::kOBS_UI_TYPE;
 static char16_t* utf8ToUtf16(const std::string& string, char16_t* out, size_t inlineSize) {
     char16_t* buffer = out;
     size_t bufferSize = inlineSize;
+    if (buffer == nullptr || inlineSize == 0) {
+        bufferSize = inlineSize = 64;
+        buffer = new char16_t[inlineSize];
+    }
     do {
         int result = MultiByteToWideChar(
             CP_UTF8, 0, string.c_str(), static_cast<int>(string.length()),
@@ -96,12 +101,12 @@ static std::string utf16ToUtf8(BSTR bstr) {
         if (result != 0) {
             std::string result(buffer);
             if (buffer != inlineBuffer)
-                ::free(buffer);
+                delete[] buffer;
             return result;
         }
 
         if (buffer != inlineBuffer)
-            ::free(buffer);
+            delete[] buffer;
         bufferSize = bufferSize * 2;
         buffer = new char[bufferSize];
         if (!buffer)
@@ -109,7 +114,7 @@ static std::string utf16ToUtf8(BSTR bstr) {
     } while (GetLastError() == ERROR_INSUFFICIENT_BUFFER);
 
     if (buffer != nullptr && buffer != inlineBuffer)
-        ::free(buffer);
+        delete[] buffer;
     return std::string();
 }
 
@@ -212,6 +217,14 @@ void WebViewImpl::show() {
     if (!ret)
         LOG(LOG_WARNING, "SetForegroundWindow() failed.");
 
+}
+
+void WebViewImpl::setTitle(const std::string& title) {
+    m_title = title;
+    if (m_hwnd) {
+        auto titleUtf16 = utf8ToUtf16(title, nullptr, 0);
+        SendNotifyMessageA(m_hwnd, kSetWebViewTitle, 0, (LPARAM)titleUtf16);
+    }
 }
 
 //
@@ -348,6 +361,7 @@ LRESULT CALLBACK WebContent::WebContentWndProc(HWND hwnd, UINT msg, WPARAM wPara
 
         HRESULT hresult = self->setupOLE();
         if (FAILED(hresult)) {
+            // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Failed to instantiate WebView: '%s' (%8X) --- Please file a bug at https://github.com/caitp/TwitchSwitcher",
                 formatError(hresult).c_str(), hresult);
             SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)nullptr);
@@ -424,6 +438,7 @@ HWND WebViewImpl::create(HINSTANCE hInstance, UINT x, UINT y, UINT width, UINT h
         wcex.lpszClassName = className;
         wcex.hIconSm = NULL;
         if (!RegisterClassEx(&wcex)) {
+            // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Could not register WebView UI for WebViewWindow: '%s'. Please file a bug at https://github.com/caitp/TwitchSwitcher",
                 formatError(GetLastError()).c_str());
             return nullptr;
@@ -447,7 +462,13 @@ HWND WebViewImpl::createInternal() {
     UINT height = screenHeight / 3;
     UINT x = (screenWidth - width) / 2;
     UINT y = (screenHeight - height) / 2;
-    return create(GetModuleHandle(NULL), x, y, width, height, true);
+    HWND hwnd = create(GetModuleHandle(NULL), x, y, width, height, true);
+    if (!m_title.empty()) {
+        char16_t* title = utf8ToUtf16(m_title, nullptr, 0);
+        DefWindowProcW(hwnd, WM_SETTEXT, 0, (LPARAM)title);
+        delete[] title;
+    }
+    return hwnd;
 }
 
 bool WebViewImpl::ensureUI() {
@@ -480,6 +501,7 @@ HWND WebContent::create(HWND parent, HINSTANCE hInstance, UINT id, bool showScro
         wcex.cbWndExtra = sizeof(this);
 
         if (!RegisterClassEx(&wcex)) {
+            // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Could not register WebView UI for WebView: '%s'. Please file a bug at https://github.com/caitp/TwitchSwitcher",
                 formatError(GetLastError()).c_str());
             return nullptr;
@@ -540,9 +562,9 @@ fail:
 
 success:
     if (urlUtf16 != nullptr && urlUtf16 != urlBuffer)
-        ::free(urlUtf16);
+        delete[] urlUtf16;
     if (headersUtf16 != nullptr && headersUtf16 != headersBuffer)
-        ::free(headersUtf16);
+        delete[] headersUtf16;
 }
 
 void WebContent::close() {
@@ -662,7 +684,6 @@ HRESULT STDMETHODCALLTYPE WebContent::GetWindowContext(IOleInPlaceFrame** frame,
 HRESULT STDMETHODCALLTYPE WebContent::OnPosRectChange(LPCRECT posRect) {
     IOleInPlaceObject* oleObj = nullptr;
     if (m_browser == nullptr) {
-        LOG(LOG_WARNING, "WebContent::OnPosRectChange() invoked before IWebBrowser2 instantiated");
         return E_FAIL;
     }
 
@@ -724,6 +745,7 @@ DWORD WINAPI WebViewImpl::messagePumpThreadProc(LPVOID param) {
 
     HRESULT hresult;
     if (FAILED(hresult = OleInitialize(NULL))) {
+        // FIXME: Use obs localization API
         LOG(LOG_WARNING, "Failed to initialize OLE layer: '%s' (%8x). Please file a bug at https://github.com/caitp/TwitchSwitcher",
             formatError(hresult).c_str(), hresult);
         ExitThread(1);
@@ -749,6 +771,13 @@ DWORD WINAPI WebViewImpl::messagePumpThreadProc(LPVOID param) {
                 WebViewImpl* self = data->self;
                 *result = self->createInternal();
                 WakeConditionVariable(&self->m_conditionVariable);
+                break;
+            }
+            case kSetWebViewTitle: {
+                wchar_t* title = reinterpret_cast<wchar_t*>(msg.lParam);
+                DefWindowProcW(msg.hwnd, WM_SETTEXT, 0, (LPARAM)title);
+                delete[] title;
+                break;
             }
             default:
                 TranslateMessage(&msg);
@@ -758,9 +787,12 @@ DWORD WINAPI WebViewImpl::messagePumpThreadProc(LPVOID param) {
                         content->TranslateAcceleratorA(&msg, 0);
                 }
                 DispatchMessage(&msg);
+                break;
             }
-        } else
+        } else {
+            // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Error occurred in WebView messagePumpThreadProc: %s (%d)", formatError(static_cast<HRESULT>(status)).c_str(), status);
+        }
 
     }
 

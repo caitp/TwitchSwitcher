@@ -123,6 +123,8 @@ public:
 
     void show();
 
+    void setTitle(const std::string& title);
+
 protected:
     virtual bool ensureUI();
     HWND create(HINSTANCE hInstance, UINT x, UINT y, UINT width, UINT height, bool showScrollBars);
@@ -151,6 +153,7 @@ private:
     HINSTANCE m_hinstance;
     WebContent* m_content;
     bool m_showScrollBars;
+    std::string m_title;
     _OnWebViewDestroyed m_onWebViewDestroyed;
     _OnCompleteCallback m_onComplete;
 };

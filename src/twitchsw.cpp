@@ -50,6 +50,7 @@ SceneWatcher g_watcher;
 MODULE_EXPORT bool obs_module_load(void) {
     std::string outputType;
     if (!hasStreamingOutput(outputType)) {
+        // FIXME: Use obs localization API
         LOG(LOG_ERROR, "Streaming output type not found.");
         return false;
     }
@@ -61,6 +62,7 @@ MODULE_EXPORT bool obs_module_load(void) {
         TSW_UNUSED(value);
     }
 
+    // FIXME: Use obs localization API
     LOG(LOG_INFO, "Started up");
     TwitchSwitcher::initializeSceneItem();
     WebView::initialize();

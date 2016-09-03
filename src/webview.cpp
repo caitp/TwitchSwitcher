@@ -51,8 +51,10 @@ WebView::Data::~Data() {
 
 WebViewImpl* WebView::getOrCreateImpl() {
     Data* data = getOrCreateData();
-    if (!data->m_impl)
+    if (!data->m_impl) {
         data->m_impl = new WebViewImpl();
+        data->m_impl->setTitle(data->m_title);
+    }
     return data->m_impl;
 }
 
@@ -82,6 +84,15 @@ WebView& WebView::close() {
     auto p = impl();
     if (p)
         p->close();
+    return *this;
+}
+
+WebView& WebView::setTitle(const std::string& title) {
+    Data* data = getOrCreateData();
+    WebViewImpl* impl = data->m_impl;
+    if (impl)
+        impl->setTitle(title);
+    data->m_title = title;
     return *this;
 }
 

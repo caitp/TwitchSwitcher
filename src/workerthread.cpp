@@ -110,6 +110,7 @@ void WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<
         doc.Parse(response.content());
         auto displayName = doc.FindMember("display_name");
         if (displayName == doc.MemberEnd()) {
+            // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Unexpected JSON response from /channel endpoint. Please file a bug at https://github.com/caitp/TwitchSwitcher");
             return;
         }
@@ -117,6 +118,7 @@ void WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<
         channel = displayName->value.GetString();
     }
 
+    // FIXME: Use obs localization API
     LOG(LOG_INFO, "Updating stream to game '%s' with title '%s'", game->c_str(), title->c_str());
     std::string body;
     {
@@ -167,6 +169,7 @@ void WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<
         }
         if (result.empty())
             result = response.content();
+        // FIXME: Use obs localization API
         LOG(LOG_WARNING, "[Twitch API] '%s'. Please file a bug at https://github.com/caitp/TwitchSwitcher", result.c_str());
     }
     return;
@@ -214,6 +217,7 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
         get("https://api.twitch.tv/kraken/oauth2/authorize");
 
     if (!authUrl.c_str()) {
+        // FIXME: Use obs localization API
         result->set_exception(std::make_exception_ptr(SimpleException("Did not get redirect URI from oauth2/authorize endpoint: '%s'.")));
         return future;
     }
@@ -246,6 +250,7 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
                 result->set_exception(std::make_exception_ptr(SimpleException("Did not get authorization token.")));
         }
     }).
+        setTitle("Please sign in"). // FIXME: Use obs localization API
         open(authUrl, authRequest).show();
 
     return future;
@@ -265,10 +270,12 @@ void WorkerThreadImpl::update(UpdateEvent&& data) {
         AuthStatus status = accessTokenFuture.get();
         accessToken = status.accessToken;
     } catch (const SimpleException& e) {
+        // FIXME: Use obs localization API
         LOG(LOG_WARNING, "Authorization failed: %s. Please file a bug at https://github.com/caitp/TwitchSwitcher", e.reason().c_str());
         return;
     } catch (const std::future_error& e) {
         if (e.code() == std::future_errc::broken_promise) {
+            // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Aborted getting access token.");
         }
         return;
