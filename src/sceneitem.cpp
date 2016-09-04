@@ -317,7 +317,7 @@ TSWSceneItem* TSWSceneItem::fromSource(obs_source_t* source) {
 
 // static
 TSWSceneItem* TSWSceneItem::fromSceneItem(obs_sceneitem_t* item) {
-    if (item == nullptr) return false;
+    if (item == nullptr) return nullptr;
     obs_source_t* source = obs_sceneitem_get_source(item);
     return fromSource(source);
 }

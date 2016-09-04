@@ -48,7 +48,7 @@ struct MessageData {
     void** result;
 };
 
-const char* WebView::kOBS_UI_TYPE;
+const char* WebView::kOBS_UI_TYPE = "win32";
 
 // Helper to convert a string to UTF16 from what is assumed to be UTF8. If the resulting
 // size is greater than the output buffer size, the return value should be freed with
@@ -66,7 +66,7 @@ static char16_t* utf8ToUtf16(const std::string& string, char16_t* out, size_t in
             reinterpret_cast<LPWSTR>(buffer), static_cast<int>(bufferSize));
 
         if (result != 0) {
-            if (result >= bufferSize) {
+            if (static_cast<size_t>(result) >= bufferSize) {
                 char16_t* newBuffer = new char16_t[bufferSize + 1];
                 ::memmove(newBuffer, buffer, bufferSize * sizeof(char16_t));
                 if (buffer != out)

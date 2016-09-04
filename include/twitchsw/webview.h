@@ -49,7 +49,10 @@ public:
     WebView& show();
     WebView& close();
     WebView& setTitle(const std::string& title);
-    const std::string& title() const { return m_data ? m_data->m_title : TSW_WEBVIEW_DEFAULT_TITLE; }
+    const std::string& title() const {
+        static const std::string defaultTitle = TSW_WEBVIEW_DEFAULT_TITLE;
+        return m_data ? m_data->m_title : defaultTitle;
+    }
 
 private:
     struct Data : public RefCounted<Data> {

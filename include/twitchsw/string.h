@@ -8,6 +8,7 @@
 #include <twitchsw/refs.h>
 
 #include <string>
+#include <cstdlib>
 
 namespace twitchsw {
 

@@ -19,7 +19,6 @@ public:
     RefCountedBase(TArgs... args) {
         m_data = reinterpret_cast<T*>(T::allocate(args...));
     }
-    template <>
     RefCountedBase(RefEmptyConstructor tag)
         : m_data(nullptr) {}
 
@@ -47,7 +46,7 @@ public:
 
     template <typename X>
     X cast() {
-        return X::fromPtr(reinterpret_cast<X::RefCountedType*>(m_data));
+        return X::fromPtr(reinterpret_cast<typename X::RefCountedType*>(m_data));
     }
 
 private:

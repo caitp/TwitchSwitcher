@@ -39,6 +39,12 @@ void WorkerThread::update(UpdateEvent& ref) {
     m_impl->postMessage(WorkerThread::kUpdate, ref.cast<EventData>());
 }
 
+void WorkerThread::update(UpdateEvent&& ref) {
+    if (!m_impl || !m_impl->m_thread) return;
+    m_impl->postMessage(WorkerThread::kUpdate, ref.cast<EventData>());
+}
+
+
 //
 //
 //

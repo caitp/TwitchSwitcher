@@ -3,63 +3,67 @@
 # can be found in the LICENSE file, which must be distributed with this
 # software.
 
-cmake_minimum_required(VERSION 3.0)
-project(twitchsw)
+cmake_minimum_required (VERSION 3.0)
+project (twitchsw)
 
-option(TSW_BUILD_TESTS "Enable building unittests" ON)
+option (TSW_BUILD_TESTS "Enable building unittests" ON)
 
-include(FindCURL)
+include (FindCURL)
 
-set(twitchsw_LIBS)
-set(twitchsw_INCLUDES)
+set (twitchsw_LIBS)
+set (twitchsw_INCLUDES)
 
-list(APPEND twitchsw_INCLUDES "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/include")
+list (APPEND twitchsw_INCLUDES "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/include")
 
 # Find libobs
-find_package(libobs REQUIRED COMPONENTS libobs)
+find_package (libobs REQUIRED COMPONENTS libobs)
 if (libobs_FOUND)
-    list(APPEND twitchsw_LIBS libobs)
-    list(APPEND twitchsw_INCLUDES ${libobs_INCLUDE_DIRS})
+    list (APPEND twitchsw_LIBS libobs)
+    list (APPEND twitchsw_INCLUDES ${libobs_INCLUDE_DIRS})
 else (libobs_FOUND)
-    message(FATAL_ERROR "Aborting.")
+    message (FATAL_ERROR "Aborting.")
 endif (libobs_FOUND)
 
 # Find libcurl
 if (CURL_FOUND)
-    list(APPEND twitchsw_LIBS ${CURL_LIBRARY})
-    list(APPEND twitchsw_INCLUDES ${CURL_INCLUDE_DIR})
+    list (APPEND twitchsw_LIBS ${CURL_LIBRARY})
+    list (APPEND twitchsw_INCLUDES ${CURL_INCLUDE_DIR})
 else (CURL_FOUND)
-    message(FATAL_ERROR "Aborting.")
+    message (FATAL_ERROR "Aborting.")
 endif (CURL_FOUND)
 
-include_directories(${twitchsw_INCLUDES})
+include_directories (${twitchsw_INCLUDES})
 
-set(BITNESS 32)
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-  set(BITNESS 64)
-endif()
+set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(CMAKE_CL_64)
-  enable_language(ASM_MASM)
-endif(CMAKE_CL_64)
+set (BITNESS 32)
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set (BITNESS 64)
+endif ()
 
-set(RELEASE_DIR "${CMAKE_BINARY_DIR}/out-Release")
-set(DEBUG_DIR "${CMAKE_BINARY_DIR}/out-Debug")
-set(PLUGINS_DIR "obs-plugins/${BITNESS}bit/")
-set(DATA_DIR "data/obs-plugins/${PROJECT_NAME}/")
+if (CMAKE_CL_64)
+  enable_language (ASM_MASM)
+endif (CMAKE_CL_64)
+
+set (RELEASE_DIR "${CMAKE_BINARY_DIR}/out-Release")
+set (DEBUG_DIR "${CMAKE_BINARY_DIR}/out-Debug")
+set (PLUGINS_DIR "obs-plugins/${BITNESS}bit/")
+set (DATA_DIR "data/obs-plugins/${PROJECT_NAME}/")
 
 # rapidjson https://github.com/miloyip/rapidjson
-set(RAPIDJSON_BUILD_DOC FALSE)
-set(RAPIDJSON_BUILD_TESTS FALSE)
-set(RAPIDJSON_BUILD_EXAMPLES FALSE)
-add_subdirectory(third_party/rapidjson EXCLUDE_FROM_ALL)
-include_directories(third_party/rapidjson/include)
+set (RAPIDJSON_BUILD_DOC FALSE)
+set (RAPIDJSON_BUILD_TESTS FALSE)
+set (RAPIDJSON_BUILD_EXAMPLES FALSE)
+add_subdirectory (third_party/rapidjson EXCLUDE_FROM_ALL)
+include_directories (third_party/rapidjson/include)
 
-add_definitions(-DRAPIDJSON_HAS_STDSTRING)
+add_definitions (-DRAPIDJSON_HAS_STDSTRING)
 
-set(twitchsw_HEADERS
+set (twitchsw_HEADERS
     include/twitchsw/twitchsw.h
     include/twitchsw/http.h
+    include/twitchsw/map.h
     include/twitchsw/refs.h
     include/twitchsw/sceneitem.h
     include/twitchsw/scenewatcher.h
@@ -67,7 +71,7 @@ set(twitchsw_HEADERS
     include/twitchsw/webview.h
     include/twitchsw/workerthread.h)
 
-set(twitchsw_SOURCES
+set (twitchsw_SOURCES
     src/twitchsw.cpp
     src/http.cpp
     src/macros-impl.h
@@ -80,11 +84,11 @@ set(twitchsw_SOURCES
     src/workerthread.cpp
     .editorconfig)
 
-if(WIN32)
-add_definitions(-DTSW_WIN32)
+if (WIN32)
+add_definitions (-DTSW_WIN32)
 
 # IInternetExplorer ActiveX implementation of WebViewImpl
-list(APPEND twitchsw_SOURCES
+list (APPEND twitchsw_SOURCES
      src/windows/webview-windows.cpp
      src/windows/webview-windows.h
      src/windows/CDispatch.cpp
@@ -100,37 +104,49 @@ list(APPEND twitchsw_SOURCES
      src/windows/COleInPlaceSite.cpp
      src/windows/COleInPlaceSite.h
      src/windows/COM.h)
-add_definitions(-DTSW_WEBVIEW_WIN32)
-endif(WIN32)
+add_definitions (-DTSW_WEBVIEW_WIN32)
+endif (WIN32)
 
-set(twitchsw_DATA
+if (APPLE)
+add_definitions (-DTSW_MAC)
+
+set (CMAKE_CXX_FLAGS "-x objective-c++")
+
+list (APPEND twitchsw_SOURCES
+     src/mac/webview-wkwebview.h
+     src/mac/webview-wkwebview.mm)
+
+add_definitions (-DTSW_WEBVIEW_WKWEBVIEW)
+endif (APPLE)
+
+set (twitchsw_DATA
     locale/en-US.ini)
 
-#TODO(caitp): Find a way to only run the command for the current build directory,
+#TODO (caitp): Find a way to only run the command for the current build directory,
 #             and not both Debug and Release directories.
-foreach(data_file ${twitchsw_DATA})  
-  add_custom_command(OUTPUT "${RELEASE_DIR}/${DATA_DIR}/${data_file}"
+foreach (data_file ${twitchsw_DATA})
+  add_custom_command (OUTPUT "${RELEASE_DIR}/${DATA_DIR}/${data_file}"
                      COMMAND cmake -E copy
                      "${CMAKE_SOURCE_DIR}/data/${data_file}"
                      "${RELEASE_DIR}/${DATA_DIR}/${data_file}")
-  add_custom_command(OUTPUT "${DEBUG_DIR}/${DATA_DIR}/${data_file}"
+  add_custom_command (OUTPUT "${DEBUG_DIR}/${DATA_DIR}/${data_file}"
                      COMMAND cmake -E copy
                      "${CMAKE_SOURCE_DIR}/data/${data_file}"
                      "${DEBUG_DIR}/${DATA_DIR}/${data_file}")
-  list(APPEND twitchsw_DATA_DEST "${RELEASE_DIR}/${DATA_DIR}/${data_file}")
-  list(APPEND twitchsw_DATA_DEST "${DEBUG_DIR}/${DATA_DIR}/${data_file}")
-endforeach()
+  list (APPEND twitchsw_DATA_DEST "${RELEASE_DIR}/${DATA_DIR}/${data_file}")
+  list (APPEND twitchsw_DATA_DEST "${DEBUG_DIR}/${DATA_DIR}/${data_file}")
+endforeach ()
 
-add_custom_target(copy-data ALL DEPENDS ${twitchsw_DATA_DEST})
+add_custom_target (copy-data ALL DEPENDS ${twitchsw_DATA_DEST})
 
 
-add_library(twitchsw MODULE
+add_library (twitchsw MODULE
             ${twitchsw_SOURCES}
             ${twitchsw_HEADERS})
-target_link_libraries(twitchsw ${twitchsw_LIBS})
-add_dependencies(twitchsw copy-data)
+target_link_libraries (twitchsw ${twitchsw_LIBS})
+add_dependencies (twitchsw copy-data)
 
-set_target_properties(twitchsw
+set_target_properties (twitchsw
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${RELEASE_DIR}/${PLUGINS_DIR}"
     ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${DEBUG_DIR}/${PLUGINS_DIR}"
@@ -139,17 +155,17 @@ set_target_properties(twitchsw
     RUNTIME_OUTPUT_DIRECTORY "${RELEASE_DIR}/${PLUGINS_DIR}"
     RUNTIME_OUTPUT_DIRECTORY "${DEBUG_DIR}/${PLUGINS_DIR}")
 
-add_custom_command(TARGET twitchsw POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory data "${DEBUG_DIR}/${DATA_DIR}")
+add_custom_command (TARGET twitchsw POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory data "${DEBUG_DIR}/${DATA_DIR}")
 
-if(TSW_BUILD_TESTS)
-  set(BUILD_GTEST ON)
-  set(BUILD_GMOCK OFF)
+if (TSW_BUILD_TESTS)
+  set (BUILD_GTEST ON)
+  set (BUILD_GMOCK OFF)
   if (WIN32)
-    set(gtest_disable_pthreads ON)
-    set(gtest_force_shared_crt ON)
-  endif(WIN32)
-  add_subdirectory(third_party/gtest EXCLUDE_FROM_ALL)
+    set (gtest_disable_pthreads ON)
+    set (gtest_force_shared_crt ON)
+  endif (WIN32)
+  add_subdirectory (third_party/gtest EXCLUDE_FROM_ALL)
 
-  enable_testing()
-  add_subdirectory(test)
-endif(TSW_BUILD_TESTS)
+  enable_testing ()
+  add_subdirectory (test)
+endif (TSW_BUILD_TESTS)

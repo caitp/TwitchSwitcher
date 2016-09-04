@@ -7,6 +7,8 @@
 
 #ifdef TSW_WEBVIEW_WIN32
 #include "windows/webview-windows.h"
+#elif defined(TSW_WEBVIEW_WKWEBVIEW)
+#include "mac/webview-wkwebview.h"
 #else
 #error "Not supported on this platform yet."
 #endif

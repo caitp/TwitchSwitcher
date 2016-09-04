@@ -7,8 +7,9 @@
 
 #include <functional>
 #include <list>
-#include <map>
 #include <string>
+
+#include <twitchsw/map.h>
 
 namespace twitchsw {
 
@@ -68,7 +69,7 @@ public:
     HttpResponse put(const std::string& url, const void* data, size_t length);
 
     HttpRequestOptions& setHeader(const std::string& key, const std::string& value) {
-        m_headers.insert_or_assign(key, value);
+        insertOrAssign(m_headers, key, value);
         return *this;
     }
     const std::map<std::string, std::string>& headers() const { return m_headers; }
@@ -102,7 +103,7 @@ private:
         std::map<std::string, std::string> newHeaders;
         newHeaders.insert(headers.begin(), headers.end());
         for (auto pair : m_headers) {
-            newHeaders.insert_or_assign(pair.first, pair.second);
+            insertOrAssign(newHeaders, pair.first, pair.second);
         }
         m_headers = newHeaders;
         return *this;

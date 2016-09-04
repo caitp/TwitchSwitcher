@@ -84,7 +84,6 @@ private:
     Ref<Scene> m_currentScene;
     obs_weak_output_t* m_streamingOutput = nullptr;
     obs_weak_service_t* m_streamingService = nullptr;
-    bool m_streaming = false;
 
     void connectSignalHandlers();
     void disconnectSignalHandlers();

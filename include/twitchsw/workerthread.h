@@ -59,6 +59,7 @@ public:
 
     // Post an "update" message to the worker thread, if the thread is started.
     static void update(UpdateEvent& event);
+    static void update(UpdateEvent&& event);
 
 private:
     static WorkerThreadImpl* m_impl;
