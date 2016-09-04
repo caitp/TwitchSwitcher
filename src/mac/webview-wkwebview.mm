@@ -16,7 +16,7 @@ void WebViewImpl::initialize() {}
 void WebViewImpl::shutdown() {}
 
 WebViewImpl::WebViewImpl()
-	: m_browser(nullptr)
+    : m_browser(nullptr)
 {
 }
 
