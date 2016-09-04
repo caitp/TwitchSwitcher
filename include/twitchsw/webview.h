@@ -22,6 +22,7 @@ typedef std::function<void()> _OnAbortCallback;
 typedef std::function<void(WebView&)> OnCompleteCallback;
 typedef std::function<void(WebView&)> OnAbortCallback;
 
+class WeakWebView;
 class WebView {
 public:
     explicit WebView();
@@ -58,6 +59,7 @@ public:
     }
 
 private:
+    friend class WeakWebView;
     struct Data : public RefCounted<Data> {
         Data(WebViewImpl* impl) : RefCounted<Data>(), m_impl(impl) {}
         ~Data();
@@ -65,6 +67,7 @@ private:
         OnCompleteCallback m_onComplete;
         OnAbortCallback m_onAbort;
         std::string m_title = TSW_WEBVIEW_DEFAULT_TITLE;
+        std::list<Data**> m_weakPtrs;
     };
     Data* m_data;
 
@@ -77,6 +80,44 @@ private:
     const Data* data() const { return m_data; }
     WebViewImpl* impl() { return m_data ? m_data->m_impl : nullptr; }
     const WebViewImpl* impl() const { return m_data ? m_data->m_impl : nullptr; }
+};
+
+class WeakWebView {
+public:
+    WeakWebView()
+        : m_data(nullptr) {}
+    WeakWebView(WebView& webView)
+        : m_data(webView.getOrCreateData()) {
+        m_data->m_weakPtrs.push_back(&m_data);
+    }
+    ~WeakWebView() {
+        if (m_data)
+            m_data->m_weakPtrs.remove(&m_data);
+    }
+
+    bool isNull() const {
+        return m_data == nullptr;
+    }
+
+#define WebViewInvoke(METHOD, ...) \
+    do { \
+        if (m_data) { \
+            WebView webView(m_data); \
+            webView.METHOD(__VA_ARGS__); \
+        } \
+    } while (0)
+
+    // Currently, the only use case I have for this is `close`.
+    // TBD
+    WeakWebView& close() {
+        WebViewInvoke(close);
+        return *this;
+    }
+
+#undef WebViewInvoke
+
+private:
+    WebView::Data* m_data;
 };
 
 }

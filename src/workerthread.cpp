@@ -74,17 +74,24 @@ void WorkerThreadImpl::run() {
     while (true) {
         MessageData event;
         if (waitForMessage(event)) {
-            switch (event.message) {
-            case WorkerThread::kTerminate:
-                cleanup();
-                return;
-
-            case WorkerThread::kUpdate:
-                update(event.param.cast<UpdateEvent>());
+            if (!handleMessage(event))
                 break;
-            }
         }
     }
+}
+
+bool WorkerThreadImpl::handleMessage(MessageData& event) {
+    switch (event.message) {
+    case WorkerThread::kTerminate:
+        cleanup();
+        return false;
+
+    case WorkerThread::kUpdate:
+        if (!update(event.param.cast<UpdateEvent>()))
+            return false;
+        break;
+    }
+    return true;
 }
 
 class SimpleException : public std::exception {
@@ -98,7 +105,7 @@ private:
     std::string m_reason;
 };
 
-void WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<String> game, const Ref<String> title) {
+bool WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<String> game, const Ref<String> title) {
     Http http;
     http.
         setHeader("Authorization", "OAuth " + accessToken).
@@ -115,7 +122,7 @@ void WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<
         get("https://api.twitch.tv/kraken/channel");
 
     if (response.status() != 200)
-        return;
+        return true;
 
     std::string channel;
 
@@ -127,7 +134,7 @@ void WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<
         if (displayName == doc.MemberEnd()) {
             // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Unexpected JSON response from /channel endpoint. Please file a bug at https://github.com/caitp/TwitchSwitcher");
-            return;
+            return true;
         }
 
         channel = displayName->value.GetString();
@@ -187,7 +194,7 @@ void WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<
         // FIXME: Use obs localization API
         LOG(LOG_WARNING, "[Twitch API] '%s'. Please file a bug at https://github.com/caitp/TwitchSwitcher", result.c_str());
     }
-    return;
+    return true;
 }
 
 std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
@@ -237,7 +244,8 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
         return future;
     }
 
-
+    if (!m_currentWebView.isNull())
+        m_currentWebView.close();
 
     WebView webView;
     authRequest.setOnRedirect([this](const std::string& url, const std::string& body) {
@@ -265,24 +273,42 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
                 result->set_exception(std::make_exception_ptr(SimpleException("Did not get authorization token")));
         }
     }).
-    setOnAbort([result](WebView& webView) {
+        setOnAbort([result](WebView& webView) {
         // Prevent hangs when a response is not going to happen.
         result->set_exception(std::make_exception_ptr(SimpleException("Request aborted")));
     }).
         setTitle("Please sign in"). // FIXME: Use obs localization API
         open(authUrl, authRequest).show();
-
+    m_currentWebView = webView;
     return future;
 }
 
-void WorkerThreadImpl::update(UpdateEvent&& data) {
+bool WorkerThreadImpl::update(UpdateEvent&& data) {
     Ref<UpdateEvent> event = data;
 
     Ref<String> game = data->game();
     Ref<String> title = data->title();
 
     auto accessTokenFuture = authenticateIfNeeded();
-    accessTokenFuture.wait();
+    while (true) {
+        // Nested message loop, special casing the Update message.
+        MessageData newEvent;
+        if (waitForMessage(newEvent, std::chrono::milliseconds(300))) {
+            if (newEvent.message == WorkerThread::kUpdate) {
+                event = newEvent.param.cast<UpdateEvent>();
+                // When sign-in is complete, will use the event data from the
+                // most recent event.
+                game = data->game();
+                title = data->title();
+            } else {
+                if (!handleMessage(newEvent))
+                    return false;
+            }
+        }
+        if (accessTokenFuture.wait_for(std::chrono::milliseconds(300)) == std::future_status::ready)
+            break;
+    }
+
     std::string accessToken;
 
     try {
@@ -291,19 +317,22 @@ void WorkerThreadImpl::update(UpdateEvent&& data) {
     } catch (const SimpleException& e) {
         // FIXME: Use obs localization API
         LOG(LOG_WARNING, "Authorization failed: %s. Please file a bug at https://github.com/caitp/TwitchSwitcher", e.reason().c_str());
-        return;
+        return true;
     } catch (const std::future_error& e) {
         if (e.code() == std::future_errc::broken_promise) {
             // FIXME: Use obs localization API
             LOG(LOG_WARNING, "Aborted getting access token.");
         }
-        return;
+        return true;
     }
 
     return updateInternal(accessToken, game, title);
 }
 
 void WorkerThreadImpl::cleanup() {
+    LOG(LOG_INFO, "WorkerThread::cleanup()");
+    if (!m_currentWebView.isNull())
+        m_currentWebView.close();
 }
 
 //

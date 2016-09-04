@@ -6,6 +6,7 @@
 #pragma once
 
 #include <twitchsw/workerthread.h>
+#include <twitchsw/webview.h>
 
 #include <list>
 #include <mutex>
@@ -54,6 +55,7 @@ private:
     std::mutex m_messageListMutex;
     std::list<MessageData> m_messageList;
     std::string m_accessToken;
+    WeakWebView m_currentWebView;
 
     void run();
 
@@ -69,9 +71,36 @@ private:
         return true;
     }
 
+    // Blocks for the allotted time, returns true if a message has become available.
+    template <typename Rep, typename Period>
+    bool waitForMessageAvailable(const std::chrono::duration<Rep,Period>& timeout_duration) {
+        std::unique_lock<std::mutex> lock(m_messageListMutex);
+        if (!m_messageList.empty() &&
+            m_didReceiveMessage.wait_for(lock, timeout_duration) == std::cv_status::no_timeout)
+            return true;
+        return false;
+    }
+
+    // Blocks for the allotted time, and reutrns message if found
+    template <typename Rep, typename Period>
+    bool waitForMessage(MessageData& data, const std::chrono::duration<Rep,Period>& timeout_duration) {
+        std::unique_lock<std::mutex> lock(m_messageListMutex);
+        if (!m_messageList.empty() ||
+            m_didReceiveMessage.wait_for(lock, timeout_duration) == std::cv_status::no_timeout) {
+            data = m_messageList.front();
+            data.param.refIfNeeded();
+            m_messageList.pop_front();
+            return true;
+        }
+        return false;
+    }
+
+    // If returned false, WorkerThreadImpl is dead and you should exit.
+    bool handleMessage(MessageData& data);
+
     std::future<AuthStatus> authenticateIfNeeded();
-    void update(UpdateEvent&& data);
-    void updateInternal(const std::string& accessToken, const Ref<String> game, const Ref<String> title);
+    bool update(UpdateEvent&& data);
+    bool updateInternal(const std::string& accessToken, const Ref<String> game, const Ref<String> title);
     void cleanup();
 };
 

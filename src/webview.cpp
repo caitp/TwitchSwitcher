@@ -45,6 +45,8 @@ void WebView::shutdown() {
 }
 
 WebView::Data::~Data() {
+    for (auto p : m_weakPtrs)
+        *p = nullptr;
     if (m_impl) {
         m_impl->close();
         m_impl = nullptr;
