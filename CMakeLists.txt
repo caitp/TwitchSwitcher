@@ -48,8 +48,14 @@ endif (CMAKE_CL_64)
 
 set (RELEASE_DIR "${CMAKE_BINARY_DIR}/out-Release")
 set (DEBUG_DIR "${CMAKE_BINARY_DIR}/out-Debug")
+if (WIN32)
 set (PLUGINS_DIR "obs-plugins/${BITNESS}bit/")
 set (DATA_DIR "data/obs-plugins/${PROJECT_NAME}/")
+else (WIN32)
+# Mac builds (and presumably unix) don't have the 32bit / 64bit directory structure
+set (PLUGINS_DIR "obs-plugins/")
+set (DATA_DIR "data/obs-plugins/")
+endif (WIN32)
 
 # rapidjson https://github.com/miloyip/rapidjson
 set (RAPIDJSON_BUILD_DOC FALSE)
@@ -153,7 +159,8 @@ set_target_properties (twitchsw
     LIBRARY_OUTPUT_DIRECTORY "${RELEASE_DIR}/${PLUGINS_DIR}"
     LIBRARY_OUTPUT_DIRECTORY_DEBUG "${DEBUG_DIR}/${PLUGINS_DIR}"
     RUNTIME_OUTPUT_DIRECTORY "${RELEASE_DIR}/${PLUGINS_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY "${DEBUG_DIR}/${PLUGINS_DIR}")
+    RUNTIME_OUTPUT_DIRECTORY "${DEBUG_DIR}/${PLUGINS_DIR}"
+    PREFIX "")
 
 add_custom_command (TARGET twitchsw POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory data "${DEBUG_DIR}/${DATA_DIR}")
 
