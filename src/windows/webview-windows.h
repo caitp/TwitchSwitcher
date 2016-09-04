@@ -25,9 +25,6 @@ namespace twitchsw {
 
 #pragma warning(suppress : 4584)
 class WebContent : public IUnknown, COleClientSite, CDispatch, CDocHostShowUI, CDocHostUIHandler, COleInPlaceSite, COleInPlaceFrame {
-private:
-    //typedef COMEventSink<WebViewImpl, IWebBrowser2, DWebBrowserEvents2> WebBrowserEvents2Handler;
-
 public:
     WebContent(WebViewImpl*);
     ~WebContent();
@@ -83,10 +80,6 @@ private:
     bool m_initializedOle;
     bool m_didFinishRequest;
     bool m_isNavigating;
-
-    //WebBrowserEvents2Handler* m_browserEvents2;
-    OnRedirectCallback m_onRedirect;
-    _OnCompleteCallback m_onComplete;
 };
 
 class WebViewImpl {
@@ -111,14 +104,15 @@ public:
     }
 
     void setOnRedirect(const OnRedirectCallback& callback) {
-        if (m_content)
-            m_content->m_onRedirect = callback;
+        m_onRedirect = callback;
     }
 
     void setOnComplete(const _OnCompleteCallback& callback) {
-        if (m_content)
-            m_content->m_onComplete = callback;
         m_onComplete = callback;
+    }
+
+    void setOnAbort(const _OnAbortCallback& callback) {
+        m_onAbort = callback;
     }
 
     void show();
@@ -154,8 +148,10 @@ private:
     WebContent* m_content;
     bool m_showScrollBars;
     std::string m_title;
+    OnRedirectCallback m_onRedirect;
     _OnWebViewDestroyed m_onWebViewDestroyed;
     _OnCompleteCallback m_onComplete;
+    _OnAbortCallback m_onAbort;
 };
 
 }

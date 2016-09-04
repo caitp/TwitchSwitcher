@@ -118,6 +118,19 @@ WebView& WebView::setOnComplete(const OnCompleteCallback& callback) {
     return *this;
 }
 
+WebView& WebView::setOnAbort(const OnAbortCallback& callback) {
+    WebViewImpl* impl = getOrCreateImpl();
+    Data* data = m_data;
+    data->m_onAbort = callback;
+    impl->setOnAbort([data]() {
+        if (data->m_onAbort) {
+            WebView webview(data);
+            data->m_onAbort(webview);
+        }
+    });
+    return *this;
+}
+
 WebView& WebView::show() {
     if (impl()) {
         auto window = impl()->nativeHandle();

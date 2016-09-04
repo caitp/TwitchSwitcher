@@ -262,8 +262,12 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
             if (this->m_accessToken.length())
                 result->set_value({ HttpResponse(200, std::string()), m_accessToken });
             else
-                result->set_exception(std::make_exception_ptr(SimpleException("Did not get authorization token.")));
+                result->set_exception(std::make_exception_ptr(SimpleException("Did not get authorization token")));
         }
+    }).
+    setOnAbort([result](WebView& webView) {
+        // Prevent hangs when a response is not going to happen.
+        result->set_exception(std::make_exception_ptr(SimpleException("Request aborted")));
     }).
         setTitle("Please sign in"). // FIXME: Use obs localization API
         open(authUrl, authRequest).show();

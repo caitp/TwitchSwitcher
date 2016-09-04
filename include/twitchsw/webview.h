@@ -18,7 +18,9 @@ class WebViewImpl;
 class WebView;
 typedef std::function<void()> _OnWebViewDestroyed;
 typedef std::function<void()> _OnCompleteCallback;
+typedef std::function<void()> _OnAbortCallback;
 typedef std::function<void(WebView&)> OnCompleteCallback;
+typedef std::function<void(WebView&)> OnAbortCallback;
 
 class WebView {
 public:
@@ -46,6 +48,7 @@ public:
 
     WebView& setOnRedirect(const OnRedirectCallback& callback);
     WebView& setOnComplete(const OnCompleteCallback& callback);
+    WebView& setOnAbort(const OnAbortCallback& callback);
     WebView& show();
     WebView& close();
     WebView& setTitle(const std::string& title);
@@ -60,6 +63,7 @@ private:
         ~Data();
         WebViewImpl* m_impl;
         OnCompleteCallback m_onComplete;
+        OnAbortCallback m_onAbort;
         std::string m_title = TSW_WEBVIEW_DEFAULT_TITLE;
     };
     Data* m_data;

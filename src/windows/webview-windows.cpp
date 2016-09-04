@@ -206,6 +206,8 @@ void WebViewImpl::close() {
 void WebViewImpl::open(const std::string& url, const HttpRequestOptions& options) {
     if (!ensureUI() || !m_content)
         return;
+    if (options.onRedirect())
+        m_onRedirect = options.onRedirect();
     return m_content->open(url, options);
 }
 
@@ -238,7 +240,6 @@ WebContent::WebContent(WebViewImpl* impl) {
     m_cookie = 0;
     m_didFinishRequest = false;
     m_isNavigating = false;
-    m_onComplete = m_impl->m_onComplete;
 }
 
 WebContent::~WebContent() {
@@ -546,7 +547,6 @@ void WebContent::open(const std::string& url, const HttpRequestOptions& options)
     }
 
     BSTR bstrURL = SysAllocString(reinterpret_cast<const OLECHAR*>(urlUtf16));
-    m_onRedirect = options.onRedirect();
     HRESULT result = m_browser->Navigate(bstrURL, &empty, &empty, &empty, &headers);
 
     if (!SUCCEEDED(result)) goto fail;
@@ -613,15 +613,19 @@ HRESULT STDMETHODCALLTYPE WebContent::Invoke(DISPID member, REFIID riid, LCID lc
     case DISPID_BEFORENAVIGATE2: {
         std::string url = utf16ToUtf8(COM::getParameter<VT_BSTR | TSW_VARIANTREF>(params, 1));
         m_isNavigating = true;
-        if (m_onRedirect) {
+        if (m_impl && m_impl->m_onRedirect) {
+            auto onRedirect = m_impl->m_onRedirect;
             std::string body;
-            OnRedirect result = m_onRedirect(url, std::string());
+            OnRedirect result = onRedirect(url, std::string());
             if (result != OnRedirect::Follow) {
                 bool* cancel = COM::getParameter<VT_BOOL | VT_BYREF>(params, 6);
                 *cancel = true;
                 m_isNavigating = false;
                 m_didFinishRequest = true;
-                if (m_onComplete) m_onComplete();
+                if (m_impl && m_impl->m_onComplete) {
+                    auto onComplete = m_impl->m_onComplete;
+                    onComplete();
+                }
                 // Navigation was cancelled, so notify the caller.
             }
         }
@@ -630,7 +634,10 @@ HRESULT STDMETHODCALLTYPE WebContent::Invoke(DISPID member, REFIID riid, LCID lc
     case DISPID_DOCUMENTCOMPLETE: {
         m_isNavigating = false;
         if (!m_didFinishRequest) {
-            if (m_onComplete) m_onComplete();
+            if (m_impl && m_impl->m_onComplete) {
+                auto onComplete = m_impl->m_onComplete;
+                onComplete();
+            }
             m_didFinishRequest = true;
         }
         break;
