@@ -169,7 +169,7 @@ public:
     TSW_BASIC_ALLOCATOR(T);
 
     void ref() { m_refs++; }
-    bool deref() { return --m_refs > 0; }
+    bool deref() { return --m_refs != 0; }
 
 private:
     long m_refs;

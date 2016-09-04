@@ -10,7 +10,7 @@
 #include <twitchsw/scenewatcher.h>
 #include <twitchsw/refs.h>
 
-#include <obs.h>
+#include <obs.hpp>
 
 namespace twitchsw {
 
@@ -82,8 +82,8 @@ public:
 private:
     std::list<Scene> m_scenes;
     Ref<Scene> m_currentScene;
-    obs_weak_output_t* m_streamingOutput = nullptr;
-    obs_weak_service_t* m_streamingService = nullptr;
+    OBSWeakOutput m_streamingOutput;
+    OBSWeakService m_streamingService;
 
     void connectSignalHandlers();
     void disconnectSignalHandlers();

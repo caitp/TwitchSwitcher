@@ -53,11 +53,6 @@ SceneWatcherImpl::~SceneWatcherImpl() {
     // https://obsproject.com/mantis/view.php?id=595
     //
     // disconnectSignalHandlers();
-
-    if (m_streamingOutput != nullptr) {
-        obs_weak_output_release(m_streamingOutput);
-        m_streamingOutput = nullptr;
-    }
 }
 
 // static
@@ -75,13 +70,11 @@ bool SceneWatcherImpl::isTwitchStream(obs_service_t* service) {
 // static
 bool SceneWatcherImpl::isTwitchStream(obs_output_t* output) {
 
-    obs_service_t* service = obs_output_get_service(output);
+    OBSService service = obs_output_get_service(output);
     if (service == nullptr)
         return false;
 
-    bool result = isTwitchStream(service);
-    obs_service_release(service);
-    return result;
+    return isTwitchStream(service);
 }
 
 // static
@@ -97,7 +90,7 @@ bool SceneWatcherImpl::scanForStreamingOutputsProc(void* param, obs_output_t* ou
     signal_handler_t* signals = obs_output_get_signal_handler(output);
     signal_handler_connect(signals, "start", onStartStreaming, impl);
 
-    impl->m_streamingOutput = obs_output_get_weak_output(output);
+    impl->m_streamingOutput = OBSGetWeakRef(output);
     return false;
 }
 
@@ -124,17 +117,19 @@ void SceneWatcherImpl::scanForStreamingServices() {
 
 
 bool SceneWatcherImpl::getTwitchCredentials(Ref<String>& key) {
-    obs_service_t* service = obs_weak_service_get_service(m_streamingService);
+    if (m_streamingService == nullptr)
+        return false;
+
+    OBSService service = OBSGetStrongRef(m_streamingService);
     if (service == nullptr) {
-        obs_weak_service_release(m_streamingService);
         m_streamingService = nullptr;
         scanForStreamingServices();
         if (m_streamingService == nullptr)
             return false;
-        service = obs_weak_service_get_service(m_streamingService);
+        service = OBSGetStrongRef(m_streamingService);
+        if (service == nullptr)
+            return false;
     }
-    if (service == nullptr)
-        return false;
 
     key = String(obs_service_get_key(service));
     return key->length() > 0;
@@ -197,9 +192,8 @@ void SceneWatcherImpl::onStartStreaming(void* userdata, calldata_t* calldata) {
         if (impl->m_streamingOutput == nullptr)
             break;
 
-        obs_output_t* currentOutput = obs_weak_output_get_output(impl->m_streamingOutput);
+        OBSOutput currentOutput = OBSGetStrongRef(impl->m_streamingOutput);
         if (currentOutput != output) {
-            obs_weak_output_release(impl->m_streamingOutput);
             impl->m_streamingOutput = nullptr;
             break;
         }
@@ -241,9 +235,8 @@ bool SceneWatcherImpl::isStreaming() {
     if (m_streamingOutput == nullptr)
         return false;
 
-    obs_output_t* output = obs_weak_output_get_output(m_streamingOutput);
+    OBSOutput output = OBSGetStrongRef(m_streamingOutput);
     if (output == nullptr) {
-        obs_weak_output_release(m_streamingOutput);
         m_streamingOutput = nullptr;
         return false;
     }
@@ -252,12 +245,9 @@ bool SceneWatcherImpl::isStreaming() {
         return false;
 
     if (!isTwitchStream(output)) {
-        obs_weak_output_release(m_streamingOutput);
         m_streamingOutput = nullptr;
         return false;
     }
-
-
 
     return true;
 }
