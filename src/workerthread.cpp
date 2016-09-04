@@ -61,6 +61,15 @@ void WorkerThreadImpl::start() {
     m_thread = new std::thread(runImpl, this);
 }
 
+void WorkerThreadImpl::runImpl(WorkerThreadImpl* impl) {
+#if !defined(TSW_WIN32) || !TSW_WIN32
+    // Name thread for debugging purposes. Non-win32 threads are assumed to use pthreads.
+    // File a bug if this breaks things!
+    pthread_setname_np("TSW.WorkerThread");
+#endif
+    impl->run();
+}
+
 void WorkerThreadImpl::run() {
     while (true) {
         MessageData event;

@@ -57,9 +57,7 @@ private:
 
     void run();
 
-    static void runImpl(WorkerThreadImpl* worker) {
-        return worker->run();
-    }
+    static void runImpl(WorkerThreadImpl* worker);
 
     bool waitForMessage(MessageData& data) {
         std::unique_lock<std::mutex> lock(m_messageListMutex);
