@@ -37,7 +37,7 @@ private:
 
     void connectSignalHandlers();
     void disconnectSignalHandlers();
-    static obs_sceneitem_t* takeFirstTwitchSceneItem(obs_source_t* source);
+    static obs_sceneitem_t* takeFirstTwitchSceneItem(obs_source_t* source, obs_sceneitem_t* ignore = nullptr);
     static bool takeFirstTwitchSceneItemProc(obs_scene_t* scene, obs_sceneitem_t* item, void* param);
 
     // Signal handlers:

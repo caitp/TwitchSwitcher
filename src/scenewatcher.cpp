@@ -314,8 +314,10 @@ void SceneImpl::onAddSceneItem(void* userdata, calldata_t* calldata) {
     if (scene->m_item != nullptr) return;
 
     obs_sceneitem_t* item;
-    if (calldata_get_ptr(calldata, "item", &item) && isTwitchSceneItem(item))
+    if (calldata_get_ptr(calldata, "item", &item) && isTwitchSceneItem(item)) {
+        obs_sceneitem_addref(item);
         scene->m_item = item;
+    }
 }
 
 void SceneImpl::onRemoveSceneItem(void* userdata, calldata_t* calldata) {
@@ -325,8 +327,8 @@ void SceneImpl::onRemoveSceneItem(void* userdata, calldata_t* calldata) {
     obs_sceneitem_t* item;
     if (calldata_get_ptr(calldata, "item", &item)) {
         if (item == scene->m_item) {
+            scene->m_item = scene->takeFirstTwitchSceneItem(scene->m_source, item);
             obs_sceneitem_release(item);
-            scene->m_item = scene->takeFirstTwitchSceneItem(scene->m_source);
         }
     }
 }
@@ -368,19 +370,24 @@ bool SceneImpl::isTwitchSceneItem(obs_sceneitem_t* item) {
     return TSWSceneItem::fromSource(source) != nullptr;
 }
 
+struct TakeFirstTwitchSceneItemData {
+    obs_sceneitem_t* ignore;
+    obs_sceneitem_t* result;
+};
 
 bool SceneImpl::takeFirstTwitchSceneItemProc(obs_scene_t* scene, obs_sceneitem_t* item, void* param) {
-    if (!isTwitchSceneItem(item))
+    TakeFirstTwitchSceneItemData* data = reinterpret_cast<TakeFirstTwitchSceneItemData*>(param);
+    if (item == data->ignore || !isTwitchSceneItem(item))
         return true;
 
-    *static_cast<obs_sceneitem_t**>(param) = item;
+    data->result = item;
     return false;
 }
 
-obs_sceneitem_t* SceneImpl::takeFirstTwitchSceneItem(obs_source_t* scene) {
-    obs_sceneitem_t* item = nullptr;
-    obs_scene_enum_items(obs_scene_from_source(scene), takeFirstTwitchSceneItemProc, &item);
-    return item;
+obs_sceneitem_t* SceneImpl::takeFirstTwitchSceneItem(obs_source_t* scene, obs_sceneitem_t* ignore) {
+    TakeFirstTwitchSceneItemData data { ignore, nullptr };
+    obs_scene_enum_items(obs_scene_from_source(scene), takeFirstTwitchSceneItemProc, &data);
+    return data.result;
 }
 
 }  // namespace twitchsw
