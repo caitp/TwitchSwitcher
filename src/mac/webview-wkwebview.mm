@@ -26,6 +26,7 @@ WebViewImpl::~WebViewImpl()
 
 void* WebViewImpl::nativeHandle()
 {
+    return nullptr;
 }
 
 void WebViewImpl::open(const std::string& url, const HttpRequestOptions& options)
