@@ -16,6 +16,8 @@
 #import <AppKit/AppKit.h>
 #import <WebKit/WebKit.h>
 
+#import "mac/WebViewController.h"
+
 namespace twitchsw {
 
 class WebViewImpl {
@@ -34,10 +36,28 @@ public:
     void setOnRedirect(const OnRedirectCallback& callback);
     void setOnComplete(const _OnCompleteCallback& callback);
     void setOnWebViewDestroyed(const _OnWebViewDestroyed& callback);
+    void setOnAbort(const _OnAbortCallback& callback);
 
     void* nativeHandle();
+
+    // Helpers for WebViewController
+    const OnRedirectCallback& onRedirect() const { return m_onRedirect; }
+    const _OnCompleteCallback& onComplete() const { return m_onComplete; }
+    const _OnWebViewDestroyed& onDestroyed() const { return m_onDestroyed; }
+    const _OnAbortCallback& onAbort() const { return m_onAbort; }
+
+protected:
+    bool ensureUI();
+
 private:
-    WKWebView* m_browser;
+    WebViewController* m_controller;
+    NSWindow* m_window;
+    OnRedirectCallback m_onRedirect;
+    _OnCompleteCallback m_onComplete;
+    _OnWebViewDestroyed m_onDestroyed;
+    _OnAbortCallback m_onAbort;
+
+    std::string m_title;
 };
 
 }  // namespace twitchsw

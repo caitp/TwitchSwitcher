@@ -116,11 +116,16 @@ endif (WIN32)
 if (APPLE)
 add_definitions (-DTSW_MAC)
 
-set (CMAKE_CXX_FLAGS "-x objective-c++")
-
 list (APPEND twitchsw_SOURCES
-     src/mac/webview-wkwebview.h
-     src/mac/webview-wkwebview.mm)
+      src/mac/WebViewController.h
+      src/mac/WebViewController.mm
+      src/mac/webview-wkwebview.h
+      src/mac/webview-wkwebview.mm)
+
+find_library(APPKIT_LIBRARY AppKit)
+find_library(WEBKIT_LIBRARY WebKit)
+
+list (APPEND twitchsw_LIBS ${APPKIT_LIBRARY} ${WEBKIT_LIBRARY})
 
 add_definitions (-DTSW_WEBVIEW_WKWEBVIEW)
 endif (APPLE)
@@ -151,6 +156,10 @@ add_library (twitchsw MODULE
             ${twitchsw_HEADERS})
 target_link_libraries (twitchsw ${twitchsw_LIBS})
 add_dependencies (twitchsw copy-data)
+
+if (APPLE)
+target_compile_options(twitchsw PRIVATE "-xobjective-c++")
+endif (APPLE)
 
 set_target_properties (twitchsw
     PROPERTIES
