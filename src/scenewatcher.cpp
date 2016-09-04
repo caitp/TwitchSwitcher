@@ -107,7 +107,7 @@ bool SceneWatcherImpl::scanForStreamingServicesProc(void* param, obs_service_t* 
     if (!isTwitchStream(service))
         return true;
 
-    impl->m_streamingService = obs_service_get_weak_service(service);
+    impl->m_streamingService = OBSGetWeakRef(service);
     return false;
 }
 
@@ -117,8 +117,11 @@ void SceneWatcherImpl::scanForStreamingServices() {
 
 
 bool SceneWatcherImpl::getTwitchCredentials(Ref<String>& key) {
-    if (m_streamingService == nullptr)
-        return false;
+    if (m_streamingService == nullptr) {
+        scanForStreamingServices();
+        if (m_streamingService == nullptr)
+            return false;
+    }
 
     OBSService service = OBSGetStrongRef(m_streamingService);
     if (service == nullptr) {
