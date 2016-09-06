@@ -26,7 +26,14 @@ class CURLRequest {
 public:
     CURLRequest(const std::string& requestUrl) : url(requestUrl) {}
     ~CURLRequest() {
-        if (curl) curl_easy_cleanup(curl);
+        if (curl) {
+            curl_easy_cleanup(curl);
+            curl = nullptr;
+        }
+        if (headers) {
+            curl_slist_free_all(headers);
+            headers = nullptr;
+        }
     }
     int send() {
         long status = -1;
