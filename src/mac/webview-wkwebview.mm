@@ -12,29 +12,32 @@ namespace twitchsw {
 // ??? obs_create_ui doesn't seem to matter anyways, investigate this...
 const char* WebView::kOBS_UI_TYPE = "mac";
 
-static WKProcessPool* g_processPool = nullptr;
+static WKProcessPool* g_processPool = nil;
 
 void WebViewImpl::initialize() {
     g_processPool = [[WKProcessPool alloc] init];
 }
 void WebViewImpl::shutdown() {
-    [g_processPool release];
-    g_processPool = nullptr;
+    g_processPool = nil;
 }
 
 WebViewImpl::WebViewImpl()
     : m_controller(nil)
     , m_window(nil)
 {
+    m_controller = nil;
+    m_window = nil;
+    m_windowController = nil;
 }
 
 WebViewImpl::~WebViewImpl()
 {
+    m_webView = nullptr;
 }
 
 void* WebViewImpl::nativeHandle()
 {
-    return (m_window == nil || m_controller == nil) ? nullptr : m_window;
+    return (m_window == nil || m_controller == nil) ? nullptr : (__bridge void*)m_window;
 }
 
 
@@ -45,7 +48,7 @@ bool WebViewImpl::ensureUI() {
                                      styleMask:windowStyleFlags
                                      backing:NSBackingStoreBuffered
                                      defer:YES];
-        m_window.windowController = [[NSWindowController alloc] initWithWindow:m_window];
+        m_windowController = [[NSWindowController alloc] initWithWindow:m_window];
         [NSApp setWindowsNeedUpdate:YES];
     }
 
@@ -81,8 +84,6 @@ void WebViewImpl::close()
             [window close];
         });
     }
-    if (m_onDestroyed)
-        m_onDestroyed();
 }
 
 void WebViewImpl::setTitle(const std::string& title)
@@ -127,6 +128,14 @@ void WebViewImpl::setOnWebViewDestroyed(const _OnWebViewDestroyed& callback)
 void WebViewImpl::setOnAbort(const _OnAbortCallback& callback)
 {
     m_onAbort = callback;
+}
+
+// Helpers for WebViewController
+void WebViewImpl::didClose()
+{
+    if (m_onDestroyed)
+        m_onDestroyed();
+    m_webView = nullptr;
 }
 
 }  // namespace twitchsw

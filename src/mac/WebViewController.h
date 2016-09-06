@@ -20,6 +20,7 @@ class WebViewImpl;
 @class WKWebView;
 @interface WebViewController : NSViewController
 
+- (void)dealloc;
 - (id)initWithHolder:(twitchsw::WebViewImpl*)holder processPool:(WKProcessPool*)proccessPool;
 - (void)loadView;
 - (void)loadURL:(NSURL*)URL withOptions:(const twitchsw::HttpRequestOptions&)options;

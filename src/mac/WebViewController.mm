@@ -5,6 +5,8 @@
 
 #if TSW_MAC
 
+#include <twitchsw/string.h>
+
 #include "mac/webview-wkwebview.h"
 #import "mac/WebViewController.h"
 
@@ -20,6 +22,11 @@
 @synthesize holder = _holder;
 @synthesize processPool = _processPool;
 
+- (void)dealloc
+{
+    LOG(LOG_INFO, "WebViewController::dealloc");
+}
+
 - (id)initWithHolder:(twitchsw::WebViewImpl*)holder processPool:(WKProcessPool*)pool
 {
     if (self = [super initWithNibName:nil bundle:nil]) {
@@ -33,7 +40,6 @@
 
 - (void)loadView
 {
-    LOG(LOG_INFO, "WebViewController: loadView");
     WKWebView* view = self.webView;
     if (view == nil) {
         CGRect frame { { 0, 0 }, { 400, 400 } };
@@ -56,28 +62,18 @@
 
 - (void)viewDidLoad
 {
-    LOG(LOG_INFO, "WebViewController: viewDidLoad");
     [super viewDidLoad];
 }
 
 - (void)viewDidAppear
 {
-    LOG(LOG_INFO, "WebViewController: viewDidAppear");
-    NSWindow* window = self.view.window;
-    if (window == nil)
-        LOG(LOG_INFO, " >>> view.window is nil");
-    else if (window.visible == NO)
-        LOG(LOG_INFO, " >>> view.window is not visible!");
-    else {
-        CGRect rect = window.frame;
-        std::string rectStr = [NSStringFromRect(rect) UTF8String];
-        LOG(LOG_INFO, " >>> view.window.frame == %s", rectStr.c_str());
-    }
 }
 
 - (void)viewDidDisappear
 {
-    LOG(LOG_INFO, "WebViewController: viewDidDisappear");
+    auto impl = self.holder;
+    if (impl)
+        impl->didClose();
 }
 
 - (void)loadURL:(NSURL*)URL withOptions:(const twitchsw::HttpRequestOptions&)options
@@ -102,21 +98,18 @@
 //
 - (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation
 {
-    LOG(LOG_INFO, "WebViewController: webView:%p didCommitNavigation:%p", webView, navigation);
 }
 
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error
 {
-    std::string url = [webView.URL.absoluteString UTF8String];
-    std::string description = [error.localizedDescription UTF8String];
-    std::string reason = [error.localizedFailureReason UTF8String];
+    NSString* details = error.localizedDescription;
+    if (error.localizedFailureReason && error.localizedFailureReason.length)
+        details = [details stringByAppendingFormat:@" (%@)", error.localizedFailureReason];
+    twitchsw::String url([webView.URL.absoluteString UTF8String]);
+    twitchsw::String reason([details UTF8String]);
 
-    std::string details = description;
-    if (reason.length())
-        details += " (" + reason + ")";
-
-    LOG(LOG_INFO, "Failed to load `%s`: %s", url.c_str(), details.c_str());
+    LOG(LOG_INFO, "Failed to load `%s`: %s", url.characters(), reason.characters());
     auto impl = self.holder;
     if (impl) {
         auto onComplete = impl->onComplete();
@@ -127,20 +120,23 @@
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error
 {
-    std::string description = [error.localizedDescription UTF8String];
-    std::string reason = [error.localizedFailureReason UTF8String];
-    std::string details = description;
-    if (reason.length())
-        details += " (" + reason + ")";
-
-    LOG(LOG_INFO, "WebVewController: webView:%p didFailNavigation:%p withError:%s", webView, navigation, details.c_str());
+    NSString* details = error.localizedDescription;
+    if (error.localizedFailureReason && error.localizedFailureReason.length)
+        details = [details stringByAppendingFormat:@" (%@)", error.localizedFailureReason];
+    twitchsw::String reason([details UTF8String]);
+    LOG(LOG_INFO, "WebVewController: webView:%p didFailNavigation:%p withError:%s", webView, navigation, reason.characters());
+    auto impl = self.holder;
+    if (impl) {
+        auto onComplete = impl->onComplete();
+        if (onComplete)
+            onComplete();
+    }
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation
 {
     std::string url = [webView.URL.absoluteString UTF8String];
 
-    LOG(LOG_INFO, "Finished loading `%s`", url.c_str());
     auto impl = self.holder;
     if (impl) {
         auto onComplete = impl->onComplete();
@@ -151,14 +147,12 @@
 
 - (void)webView:(WKWebView *)webView didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler
 {
-    LOG(LOG_INFO, "WebViewController: webView:%p didReceiveAuthenticationChallenge:%p", webView, challenge);
     completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
 }
 
 - (void)webView:(WKWebView *)webView didReceiveServerRedirectForProvisionalNavigation:(WKNavigation *)navigation
 {
     std::string url = [webView.URL.absoluteString UTF8String];
-    LOG(LOG_INFO, "Requested redirect %s", url.c_str());
     auto impl = self.holder;
     if (impl) {
         auto onRedirect = impl->onRedirect();
@@ -173,12 +167,10 @@
 
 - (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation
 {
-    LOG(LOG_INFO, "WebViewController: webView:%p didStartProvisionalNavigation:%p", webView, navigation);
 }
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
 {
-    LOG(LOG_INFO, "WebViewController: webViewWebContentProcessDidTerminate:%p", webView);
 }
 
 @end

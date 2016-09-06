@@ -68,8 +68,10 @@ add_definitions (-DRAPIDJSON_HAS_STDSTRING)
 
 set (twitchsw_HEADERS
     include/twitchsw/twitchsw.h
+    include/twitchsw/compiler.h
     include/twitchsw/http.h
     include/twitchsw/map.h
+    include/twitchsw/never-destroyed.h
     include/twitchsw/refs.h
     include/twitchsw/sceneitem.h
     include/twitchsw/scenewatcher.h
@@ -85,6 +87,8 @@ set (twitchsw_SOURCES
     src/scenewatcher-impl.h
     src/scenewatcher.cpp
     src/string.cpp
+    src/string-impl.h
+    src/string-impl.cpp
     src/webview.cpp
     src/workerthread-impl.h
     src/workerthread.cpp
@@ -159,6 +163,7 @@ add_dependencies (twitchsw copy-data)
 
 if (APPLE)
 target_compile_options(twitchsw PRIVATE "-xobjective-c++")
+target_compile_options(twitchsw PUBLIC "-fobjc-arc")
 endif (APPLE)
 
 set_target_properties (twitchsw

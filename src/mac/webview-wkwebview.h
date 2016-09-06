@@ -18,6 +18,10 @@
 
 #import "mac/WebViewController.h"
 
+#if !__has_feature(objc_arc)
+#error "ARC has not been enabled"
+#endif
+
 namespace twitchsw {
 
 class WebViewImpl {
@@ -46,12 +50,17 @@ public:
     const _OnWebViewDestroyed& onDestroyed() const { return m_onDestroyed; }
     const _OnAbortCallback& onAbort() const { return m_onAbort; }
 
+    void didClose();
+
 protected:
     bool ensureUI();
 
 private:
+    friend class WebView;
+    RefPtr<WebView> m_webView; // Keep holder alive until WebViewImpl is destroyed
     WebViewController* m_controller;
     NSWindow* m_window;
+    NSWindowController* m_windowController;
     OnRedirectCallback m_onRedirect;
     _OnCompleteCallback m_onComplete;
     _OnWebViewDestroyed m_onDestroyed;
