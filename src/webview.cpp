@@ -52,10 +52,12 @@ WebView& WebView::open(const std::string& url, const HttpRequestOptions& options
     WebViewImpl* p = getOrCreateImpl();
 
     // Will leak unless WebViewImpl calls the OnWebViewDestroyed callback.
-    //p->setOnWebViewDestroyed([data]() {
-    //    if (!data->deref())
-    //        delete data;
-    //});
+    WeakPtr<WebView> weakThis = createWeakPtr();
+    p->setOnWebViewDestroyed([weakThis]() {
+        Ref<WebView> webView = *weakThis.get();
+        if (webView->m_onAbort)
+            webView->m_onAbort(webView.get());
+    });
     p->open(url, options);
 
     return *this;

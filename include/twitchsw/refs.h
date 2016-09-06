@@ -38,6 +38,7 @@
 #include <twitchsw/twitchsw.h>
 
 #include <algorithm>
+#include <atomic>
 
 namespace twitchsw {
 
@@ -409,10 +410,10 @@ public:
     void swap(RefPtr&);
 
 #if TSW_COMPILER_SUPPORTS(CXX_REFERENCE_QUALIFIED_FUNCTIONS)
-    RefPtr copyRef()&& = delete;
-    RefPtr copyRef() const & { return RefPtr(m_data); }
+    RefPtr copyRef() && = delete;
+    RefPtr copyRef() const &;
 #else
-    RefPtr copyRef const { return RefPtr(m_data); }
+    RefPtr copyRef() const;
 #endif  // TSW_COMPILER_SUPPORTS(CXX_REFERENCE_QUALIFIED_FUNCTIONS)
 
 private:
@@ -423,6 +424,14 @@ private:
 
     T* m_data;
 };
+
+#if TSW_COMPILER_SUPPORTS(CXX_REFERENCE_QUALIFIED_FUNCTIONS)
+template <typename T>
+RefPtr<T> RefPtr<T>::copyRef() const & { return RefPtr(m_data); }
+#else
+template <typename T>
+RefPtr<T> RefPtr<T>::copyRef() const { return RefPtr(m_data); }
+#endif  // TSW_COMPILER_SUPPORTS(CXX_REFERENCE_QUALIFIED_FUNCTIONS)
 
 // PassRefPtr
 template <typename T>

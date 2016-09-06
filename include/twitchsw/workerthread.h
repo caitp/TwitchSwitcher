@@ -51,6 +51,8 @@ class WorkerThreadImpl;
 class WorkerThread {
 public:
     enum Message {
+        kNoMessage = 0,
+
         // Priviledged messages are pushed to the front of the message queue for eager consumption
         kTerminate,
         kLastPriviledgedMessage = kTerminate,

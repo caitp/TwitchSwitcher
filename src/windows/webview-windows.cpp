@@ -343,6 +343,10 @@ LRESULT WebViewImpl::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)nullptr);
 
         auto onDestroy = m_onWebViewDestroyed;
+
+        // Prevent retaining WebView
+        RefPtr<WebView> webView = m_webView;
+        m_webView = nullptr;
         if (onDestroy)
             onDestroy();
         WakeConditionVariable(&m_conditionVariable);

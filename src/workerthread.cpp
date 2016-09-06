@@ -260,8 +260,10 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
         }
         return OnRedirect::Follow;
     });
-    webView->setOnComplete([this, result](WebView& webView) {
+    bool gotAuthToken = false;
+    webView->setOnComplete([this, result, &gotAuthToken](WebView& webView) {
         if (this->m_accessToken.length()) {
+            gotAuthToken = true;
             webView.close();
             if (this->m_accessToken.length())
                 result->set_value({ HttpResponse(200, std::string()), m_accessToken });
@@ -269,9 +271,10 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
                 result->set_exception(std::make_exception_ptr(SimpleException("Did not get authorization token")));
         }
     }).
-        setOnAbort([result](WebView& webView) {
+        setOnAbort([result, &gotAuthToken](WebView& webView) {
         // Prevent hangs when a response is not going to happen.
-        result->set_exception(std::make_exception_ptr(SimpleException("Request aborted")));
+        if (!gotAuthToken)
+            result->set_exception(std::make_exception_ptr(SimpleException("Request aborted")));
     }).
         setTitle("Please sign in"). // FIXME: Use obs localization API
         open(authUrl, authRequest).show();

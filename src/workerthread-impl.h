@@ -16,6 +16,17 @@
 namespace twitchsw {
 
 struct MessageData {
+    MessageData()
+        : message(WorkerThread::kNoMessage)
+        , param(nullptr)
+    {
+    }
+
+    MessageData(WorkerThread::Message messageID, PassRefPtr<EventData> data = nullptr)
+        : message(messageID)
+        , param(data)
+    {
+    }
     WorkerThread::Message message;
     RefPtr<EventData> param = nullptr;
 };
@@ -38,10 +49,11 @@ public:
         {
             std::lock_guard<std::mutex> lock(m_messageListMutex);
             wasEmpty = m_messageList.empty();
+            MessageData event(message, data);
             if (message <= WorkerThread::kLastPriviledgedMessage)
-                m_messageList.push_front({ message, data });
+                m_messageList.push_front(event);
             else
-                m_messageList.push_back({ message, data });
+                m_messageList.push_back(event);
         }
         if (wasEmpty)
             m_didReceiveMessage.notify_one();
@@ -72,7 +84,7 @@ private:
 
     // Blocks for the allotted time, returns true if a message has become available.
     template <typename Rep, typename Period>
-    bool waitForMessageAvailable(const std::chrono::duration<Rep,Period>& timeout_duration) {
+    bool waitForMessageAvailable(const std::chrono::duration<Rep, Period>& timeout_duration) {
         std::unique_lock<std::mutex> lock(m_messageListMutex);
         if (!m_messageList.empty() &&
             m_didReceiveMessage.wait_for(lock, timeout_duration) == std::cv_status::no_timeout)
@@ -82,13 +94,17 @@ private:
 
     // Blocks for the allotted time, and reutrns message if found
     template <typename Rep, typename Period>
-    bool waitForMessage(MessageData& data, const std::chrono::duration<Rep,Period>& timeout_duration) {
+    bool waitForMessage(MessageData& data, const std::chrono::duration<Rep, Period>& timeout_duration) {
         std::unique_lock<std::mutex> lock(m_messageListMutex);
         if (!m_messageList.empty() ||
             m_didReceiveMessage.wait_for(lock, timeout_duration) == std::cv_status::no_timeout) {
-            data = m_messageList.front();
-            m_messageList.pop_front();
-            return true;
+            // FIXME(caitp): For some reason MSVC reaches this point with an empty messageList. Am I abusing the message list CV?
+            if (!m_messageList.empty()) {
+                MessageData copy = m_messageList.front();
+                data = { copy.message, copy.param.leakRef() };
+                m_messageList.pop_front();
+                return true;
+            }
         }
         return false;
     }

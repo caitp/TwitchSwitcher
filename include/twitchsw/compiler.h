@@ -1,3 +1,8 @@
+// Copyright (C) 2016 Caitlin Potter & Contributors. All rights reserved.
+// Use of this source is governed by the Apache License, Version 2.0 that
+// can be found in the LICENSE file, which must be distributed with this
+// software.
+
 #pragma once
 
 #define TSW_COMPILER(COMPILER) (defined(TSW_COMPILER_##COMPILER) && TSW_COMPILER_##COMPILER)
@@ -15,7 +20,7 @@
 #endif  // __clang__
 
 #ifdef _MSC_VER
-#define TSW_COMPILER_MSVC
+#define TSW_COMPILER_MSVC 1
 #endif  // _MSC_VER
 
 #ifdef __GNUC__
