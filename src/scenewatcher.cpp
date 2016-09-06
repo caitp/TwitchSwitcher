@@ -33,7 +33,7 @@ void SceneWatcher::terminate() {
     m_impl = nullptr;
 }
 
-bool SceneWatcher::getTwitchCredentials(Ref<String>& key) {
+bool SceneWatcher::getTwitchCredentials(String& key) {
     if (g_watcher.m_impl == nullptr) return false;
     return g_watcher.m_impl->getTwitchCredentials(key);
 }
@@ -116,7 +116,7 @@ void SceneWatcherImpl::scanForStreamingServices() {
 }
 
 
-bool SceneWatcherImpl::getTwitchCredentials(Ref<String>& key) {
+bool SceneWatcherImpl::getTwitchCredentials(String& key) {
     if (m_streamingService == nullptr) {
         scanForStreamingServices();
         if (m_streamingService == nullptr)
@@ -135,7 +135,7 @@ bool SceneWatcherImpl::getTwitchCredentials(Ref<String>& key) {
     }
 
     key = String(obs_service_get_key(service));
-    return key->length() > 0;
+    return key.length() > 0;
 }
 
 void SceneWatcherImpl::connectSignalHandlers() {
@@ -213,19 +213,18 @@ void SceneWatcherImpl::onStartStreaming(void* userdata, calldata_t* calldata) {
 
 void SceneWatcherImpl::addScene(obs_source_t* scene) {
     if (findScene(scene).isNull()) {
-        Scene newScene(this, scene);
-        newScene.ref();
-        m_scenes.push_back(newScene);
+        LOG(LOG_INFO, "addScene(%p)", scene);
+        m_scenes.push_back(adoptRef(new Scene(this, scene)));
     }
 }
 
 void SceneWatcherImpl::removeScene(obs_source_t* scene) {
     for (auto it = m_scenes.begin(); it != m_scenes.end(); ++it) {
-        Ref<Scene> foundScene = *it;
+        RefPtr<Scene> foundScene = *it;
         if (foundScene->source() == scene) {
             m_scenes.erase(it);
             if (foundScene == m_currentScene)
-                m_currentScene = Ref<Scene>();
+                m_currentScene = nullptr;
             return;
         }
     }
@@ -255,34 +254,34 @@ bool SceneWatcherImpl::isStreaming() {
     return true;
 }
 
-Ref<Scene> SceneWatcherImpl::findScene(obs_source_t* source) {
+RefPtr<Scene> SceneWatcherImpl::findScene(obs_source_t* source) {
     for (auto it = m_scenes.begin(); it != m_scenes.end(); ++it) {
-        Ref<Scene> scene = *it;
+        RefPtr<Scene> scene = *it;
         if (scene->source() == source)
             return scene;
     }
-    return Ref<Scene>();
+    return RefPtr<Scene>();
 }
 
 //
 //
 //
 
-SceneImpl::SceneImpl(SceneWatcherImpl* impl, obs_source_t* scene)
+Scene::Scene(SceneWatcherImpl* impl, obs_source_t* scene)
     : RefCounted(), m_impl(impl), m_source(scene), m_item(nullptr) {
     connectSignalHandlers();
     if (!m_item)
         m_item = takeFirstTwitchSceneItem(m_source);
 }
 
-SceneImpl::~SceneImpl() {
+Scene::~Scene() {
     disconnectSignalHandlers();
 
     m_source = nullptr;
     m_item = nullptr;
 }
 
-void SceneImpl::connectSignalHandlers() {
+void Scene::connectSignalHandlers() {
     signal_handler_t* signals = obs_source_get_signal_handler(source());
     if (!signals) return;
 
@@ -292,7 +291,7 @@ void SceneImpl::connectSignalHandlers() {
     signal_handler_connect(signals, "activate", onActivate, this);
 }
 
-void SceneImpl::disconnectSignalHandlers() {
+void Scene::disconnectSignalHandlers() {
     signal_handler_t* signals = obs_source_get_signal_handler(m_source);
     if (!signals) return;
 
@@ -302,60 +301,56 @@ void SceneImpl::disconnectSignalHandlers() {
     signal_handler_disconnect(signals, "activate", onActivate, this);
 }
 
-void SceneImpl::onAddSceneItem(void* userdata, calldata_t* calldata) {
-    SceneImpl* scene = static_cast<SceneImpl*>(userdata);
+void Scene::onAddSceneItem(void* userdata, calldata_t* calldata) {
+    RefPtr<Scene> scene = static_cast<Scene*>(userdata);
     if (scene->m_item != nullptr) return;
 
     obs_sceneitem_t* item;
     if (calldata_get_ptr(calldata, "item", &item) && isTwitchSceneItem(item)) {
-        obs_sceneitem_addref(item);
         scene->m_item = item;
     }
 }
 
-void SceneImpl::onRemoveSceneItem(void* userdata, calldata_t* calldata) {
-    SceneImpl* scene = static_cast<SceneImpl*>(userdata);
+void Scene::onRemoveSceneItem(void* userdata, calldata_t* calldata) {
+    RefPtr<Scene> scene = static_cast<Scene*>(userdata);
     if (scene->m_item == nullptr) return;
 
     obs_sceneitem_t* item;
     if (calldata_get_ptr(calldata, "item", &item)) {
         if (item == scene->m_item) {
             scene->m_item = scene->takeFirstTwitchSceneItem(scene->m_source, item);
-            obs_sceneitem_release(item);
         }
     }
 }
 
-void SceneImpl::onShow(void* userdata, calldata_t* calldata) {
-    SceneImpl* self = static_cast<SceneImpl*>(userdata);
-    SceneWatcherImpl* impl = self->m_impl;
-    Scene scene = Scene::fromPtr(self);
-    scene.ref();
+void Scene::onShow(void* userdata, calldata_t* calldata) {
+    RefPtr<Scene> scene = static_cast<Scene*>(userdata);
+    SceneWatcherImpl* impl = scene->m_impl;
     impl->setCurrentScene(scene);
-    self->updateIfNeeded();
+    scene->updateIfNeeded();
 }
 
-void SceneImpl::onActivate(void* userdata, calldata_t* calldata) {
+void Scene::onActivate(void* userdata, calldata_t* calldata) {
 }
 
-void SceneImpl::updateIfNeeded(bool force) {
+void Scene::updateIfNeeded(bool force) {
     TSWSceneItem* item = TSWSceneItem::fromSceneItem(m_item);
     if (item == nullptr) return;
 
     if (!force && TwitchSwitcher::isDisabled(TwitchSwitcher::kUpdateWithoutStreaming) && !this->m_impl->isStreaming())
         return;
 
-    Ref<String> game = item->game();
-    Ref<String> title = item->title();
+    String game = item->game();
+    String title = item->title();
     // FIXME: Use obs localization API
     LOG(LOG_DEBUG, "Updating stream '%s'", obs_source_get_name(m_source));
-    WorkerThread::update(UpdateEvent(game, title));
+    WorkerThread::update(adoptRef(*new UpdateEvent(game, title)));
 }
 
 //
 //
 //
-bool SceneImpl::isTwitchSceneItem(obs_sceneitem_t* item) {
+bool Scene::isTwitchSceneItem(obs_sceneitem_t* item) {
     if (!item)
         return false;
 
@@ -368,7 +363,7 @@ struct TakeFirstTwitchSceneItemData {
     obs_sceneitem_t* result;
 };
 
-bool SceneImpl::takeFirstTwitchSceneItemProc(obs_scene_t* scene, obs_sceneitem_t* item, void* param) {
+bool Scene::takeFirstTwitchSceneItemProc(obs_scene_t* scene, obs_sceneitem_t* item, void* param) {
     TakeFirstTwitchSceneItemData* data = reinterpret_cast<TakeFirstTwitchSceneItemData*>(param);
     if (item == data->ignore || !isTwitchSceneItem(item))
         return true;
@@ -377,7 +372,7 @@ bool SceneImpl::takeFirstTwitchSceneItemProc(obs_scene_t* scene, obs_sceneitem_t
     return false;
 }
 
-obs_sceneitem_t* SceneImpl::takeFirstTwitchSceneItem(obs_source_t* scene, obs_sceneitem_t* ignore) {
+obs_sceneitem_t* Scene::takeFirstTwitchSceneItem(obs_source_t* scene, obs_sceneitem_t* ignore) {
     TakeFirstTwitchSceneItemData data { ignore, nullptr };
     obs_scene_enum_items(obs_scene_from_source(scene), takeFirstTwitchSceneItemProc, &data);
     return data.result;

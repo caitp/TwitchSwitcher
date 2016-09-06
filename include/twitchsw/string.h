@@ -7,136 +7,200 @@
 
 #include <twitchsw/refs.h>
 
+#include "string-impl.h"
+
 #include <string>
 #include <cstdlib>
 
 namespace twitchsw {
 
-enum class StaticString { Tag };
-class StringImpl;
-TSW_DECLARE_REF_CLASS(String, StringImpl);
-class StringImpl : public RefCountedOrStatic<StringImpl> {
+class String {
 public:
-    StringImpl(StaticString tag, size_t length, const char* data)
-        : RefCountedOrStatic(1), m_length(length), m_buffer(data) {}
-    ~StringImpl();
+    String() { LOG(LOG_INFO, "String() --- %p", m_impl.get()); }
+    String(const char* characters);
+    String(const char* characters, unsigned length);
+    ALWAYS_INLINE ~String() { }
 
-    bool startsWith(const std::string&) const;
-    bool startsWith(const String&) const;
-    bool startsWith(const Ref<String>&) const;
-    bool startsWith(const char*) const;
-
-    bool endsWith(const std::string&) const;
-    bool endsWith(const String&) const;
-    bool endsWith(const Ref<String>&) const;
-    bool endsWith(const char*) const;
-
-    bool equals(const std::string&) const;
-    bool equals(const String&) const;
-    bool equals(const Ref<String>&) const;
-    bool equals(const char*) const;
-
-    size_t length() const { return m_length; }
-    const char* c_str() const { return m_buffer; }
-
-    static StringImpl* allocate() { return refEmptyString(); }
-    static StringImpl* allocate(const char* cstring) {
-        if (!cstring || !*cstring) return refEmptyString();
-        size_t length = ::strlen(cstring);
-        return StringImpl::allocate(cstring, length);
+    String(StringImpl& impl)
+        : m_impl(&impl)
+    {
     }
 
-    static StringImpl* allocate(const char* cstring, size_t length) {
-        if (!cstring || !length) return refEmptyString();
-        size_t words = (sizeof(StringImpl) + length) / sizeof(long) + 1;
-        StringImpl* data = reinterpret_cast<StringImpl*>(::calloc(words, sizeof(long)));
-        data->m_length = length;
-        memcpy(data->m_bytes, cstring, length);
-        data->m_bytes[length] = '\0';
-        data->m_buffer = data->m_bytes;
-        data->ref();
-        return data;
+    String(StringImpl* impl)
+        : m_impl(impl)
+    {
     }
 
-    static StringImpl* allocate(const std::string& string) {
-        if (string.empty()) refEmptyString();
-        return StringImpl::allocate(string.c_str(), string.length());
+    String(Ref<StringImpl>&& impl)
+        : m_impl(std::move(impl))
+    {
     }
 
-    static StringImpl* allocate(const String&);
-    static StringImpl* allocate(const Ref<String>&);
-    static StringImpl* allocate(String&&);
-    static StringImpl* allocate(Ref<String>&&);
-
-    static void deallocate(StringImpl*);
-
-    static StringImpl* refEmptyString() {
-        StringImpl* data = &g_emptyString;
-        data->ref();
-        return data;
+    String(RefPtr<StringImpl>&& impl)
+        : m_impl(std::move(impl))
+    {
     }
 
-    class reverse_iterator;
-    class iterator : public std::iterator<std::random_access_iterator_tag, const char> {
-    public:
-        iterator() : m_pos(nullptr) {}
-        explicit iterator(const char* pos) : m_pos(pos) {}
-        iterator& operator++() { m_pos++; return *this; }
-        iterator operator++(int) { iterator ret(m_pos); m_pos++; return ret; }
-        bool operator==(iterator other) const { return m_pos == other.m_pos; }
-        bool operator!=(iterator other) const { return !(*this == other); }
-        reference operator*() const { return *m_pos; }
-        iterator operator-(difference_type diff) const { return iterator(m_pos - diff); }
-        iterator& operator-=(difference_type diff) { m_pos -= diff; return *this; }
-        iterator operator+(difference_type diff) const { return iterator(m_pos + diff); }
-        iterator& operator+=(difference_type diff) { m_pos += diff; return *this; }
-        operator pointer() const { return m_pos; }
-    private:
-        friend class reverse_iterator;
-        const char* m_pos;
-    };
+    enum ConstructFromLiteralTag { ConstructFromLiteral };
+    template <unsigned N>
+    String(const char (&characters)[N], ConstructFromLiteralTag)
+        : m_impl(StringImpl::createFromLiteral<N>(characters))
+    {
+    }
 
-    class reverse_iterator : public std::reverse_iterator<iterator> {
-    public:
-        reverse_iterator() : m_pos(nullptr) {}
-        explicit reverse_iterator(const char* pos) : m_pos(pos) {}
-        reverse_iterator& operator--() { m_pos++; return *this; }
-        reverse_iterator operator--(int) { reverse_iterator ret(m_pos); m_pos++; return ret; }
-        reverse_iterator& operator++() { m_pos--; return *this; }
-        reverse_iterator operator++(int) { reverse_iterator ret(m_pos); m_pos--; return ret; }
-        bool operator==(reverse_iterator other) const { return m_pos == other.m_pos; }
-        bool operator!=(reverse_iterator other) const { return !(*this == other); }
-        reference operator*() const { return *m_pos; }
-        reverse_iterator operator+(difference_type diff) const { return reverse_iterator(m_pos - diff); }
-        reverse_iterator& operator+=(difference_type diff) { m_pos -= diff; return *this; }
-        reverse_iterator operator-(difference_type diff) const { return reverse_iterator(m_pos + diff); }
-        reverse_iterator& operator-=(difference_type diff) { m_pos += diff; return *this; }
-        operator pointer() const { return m_pos; }
+    String(const String& other)
+        : m_impl(other.m_impl)
+    {
+    }
 
-    private:
-        friend class iterator;
-        const char* m_pos;
-    };
+    String(String&& other)
+        : m_impl(std::move(other.m_impl))
+    {
+    }
 
-    typedef iterator const_iterator;
-    typedef reverse_iterator const_reverse_iterator;
+    String& operator=(const String& other) {
+        m_impl = other.m_impl;
+        LOG(LOG_INFO, "String::operator=() --- %p", m_impl.get());
+        return *this;
+    }
+    String& operator=(String&& other) {
+        m_impl = std::move(other.m_impl);
+        LOG(LOG_INFO, "String::operator=() --- %p (%p)", m_impl.get(), other.m_impl.get());
+        return* this;
+    }
 
-    iterator begin() { return iterator(m_buffer); }
-    iterator end() { return iterator(m_buffer + m_length); }
-    reverse_iterator rbegin() { return reverse_iterator(m_buffer + m_length - 1); }
-    reverse_iterator rend() { return reverse_iterator(m_buffer); }
+    void swap(String& o) { m_impl.swap(o.m_impl); }
 
-    const_iterator cbegin() const { return iterator(m_buffer); }
-    const_iterator cend() const { return iterator(m_buffer + m_length); }
-    const_reverse_iterator crbegin() const { return reverse_iterator(m_buffer + m_length - 1); }
-    const_reverse_iterator crend() const { return reverse_iterator(m_buffer); }
+    bool isNull() const { return !m_impl; }
+    bool isEmpty() const { return !m_impl || !m_impl->length(); }
+    unsigned refCount() const { return m_impl ? m_impl->refCount() : 0; }
+
+    StringImpl* impl() const { return m_impl.get(); }
+    RefPtr<StringImpl> releaseImpl() { return std::move(m_impl); }
+
+    std::string toStdString() const {
+        if (LIKELY(m_impl))
+            return std::string(m_impl->characters(), m_impl->length());
+        return std::string();
+    }
+
+    unsigned length() const
+    {
+        if (!m_impl)
+            return 0;
+        return m_impl->length();
+    }
+
+    const char* characters() const
+    {
+        if (!m_impl)
+            return nullptr;
+        return m_impl->characters();
+    }
+
+    const char* c_str() const { return characters(); }
+
+    char at(unsigned index) const
+    {
+        if (!m_impl || index >= m_impl->length())
+            return 0;
+        return (*m_impl)[index];
+    }
+
+    char operator[](unsigned index) const { return at(index); }
+
+    // startsWith
+    bool startsWith(const std::string& o) const
+    {
+        if (LIKELY(m_impl))
+            return m_impl->startsWith(o.c_str(), o.length());
+        return o.length() == 0;
+    }
+
+    bool startsWith(const String& o) const
+    {
+        unsigned len = o.length();
+        if (LIKELY(m_impl && len))
+            return m_impl->startsWith(o.characters(), len);
+        return len == 0;
+    }
+    bool startsWith(const char* o) const
+    {
+        if (UNLIKELY(!o || !*o))
+            return true;
+        return startsWith(o, static_cast<unsigned>(::strlen(o)));
+    }
+
+    bool startsWith(const char* o, unsigned len) const
+    {
+        // TODO(caitp): ASSERT(o != nullptr)
+        if (LIKELY(m_impl))
+            return m_impl->startsWith(o, len);
+        return len == 0;
+    }
+
+    // endsWith
+    bool endsWith(const std::string& o) const
+    {
+        if (LIKELY(m_impl))
+            return m_impl->endsWith(o.c_str(), o.length());
+        return o.length() == 0;
+    }
+
+    bool endsWith(const String& o) const
+    {
+        unsigned len = o.length();
+        if (LIKELY(m_impl && len))
+            return m_impl->endsWith(o.characters(), len);
+        return len == 0;
+    }
+    bool endsWith(const char* o) const
+    {
+        if (UNLIKELY(!o || !*o))
+            return true;
+        return endsWith(o, static_cast<unsigned>(::strlen(o)));
+    }
+
+    bool endsWith(const char* o, unsigned len) const
+    {
+        // TODO(caitp): ASSERT(o != nullptr)
+        if (LIKELY(m_impl))
+            return m_impl->endsWith(o, len);
+        return len == 0;
+    }
+
+    // equals
+    bool equals(const std::string& o) const
+    {
+        if (LIKELY(m_impl))
+            return m_impl->equals(o.c_str(), o.length());
+        return o.length() == 0;
+    }
+
+    bool equals(const String& o) const
+    {
+        unsigned len = o.length();
+        if (LIKELY(m_impl && len))
+            return m_impl->equals(o.characters(), len);
+        return len == 0;
+    }
+    bool equals(const char* o) const
+    {
+        if (UNLIKELY(!o || !*o))
+            return length() == 0;
+        return equals(o, static_cast<unsigned>(::strlen(o)));
+    }
+
+    bool equals(const char* o, unsigned len) const
+    {
+        // TODO(caitp): ASSERT(o != nullptr)
+        if (LIKELY(m_impl))
+            return m_impl->equals(o, len);
+        return len == 0;
+    }
 
 private:
-    static StringImpl g_emptyString;
-
-    size_t m_length;
-    const char* m_buffer;
-    char m_bytes[1];
+    RefPtr<StringImpl> m_impl;
 };
 
 }  // twitchsw

@@ -5,13 +5,14 @@
 
 #pragma once
 
-#include <string>
-
 #include <util/base.h>
 
-#include <twitchsw/string.h>
+#include <twitchsw/compiler.h>
 
 #include <array>
+#include <string>
+#include <new>
+#include <cstdlib>
 
 #ifdef LOG
 #undef LOG
@@ -25,11 +26,6 @@
 struct obs_source;
 typedef struct obs_source obs_source_t;
 namespace twitchsw {
-
-template <typename T>
-T&& useVariableImpl(T&& variable) { return variable; }
-
-#define TSW_UNUSED(X) twitchsw::useVariableImpl((X))
 
 template <typename T>
 constexpr auto makeArrayN(std::integral_constant<std::size_t, 0>, T&&) {
@@ -50,7 +46,7 @@ constexpr auto makeArrayN(T&& value) {
     return makeArrayN(std::integral_constant<std::size_t, size>{}, std::forward<T>(value));
 }
 
-
+class String;
 class TwitchSwitcher {
 public:
     enum Setting {
@@ -68,8 +64,43 @@ public:
     static void addSettingsIfNeeded(obs_source_t* source);
 
     static void prettyPrintJSON(const std::string& string);
-    static void prettyPrintJSON(Ref<String> string);
+    static void prettyPrintJSON(const String& string);
     static void prettyPrintJSON(const char* str, size_t length);
 };
+
+// TODO(caitp): measure if a significant difference is made from using an alternate
+// allocator such as tcmalloc or WebKit's bmalloc
+ALWAYS_INLINE void* fastAllocUninitialized(size_t size)
+{
+    size_t count = size / sizeof(void*);
+    return ::malloc(sizeof(void*) * (count + 1));
+}
+
+ALWAYS_INLINE void* fastAllocZero(size_t size)
+{
+    size_t count = size / sizeof(void*);
+    return ::calloc(sizeof(void*), count + 1);
+}
+
+ALWAYS_INLINE void fastDealloc(void* ptr)
+{
+    return ::free(ptr);
+}
+
+// Efficient implementation that takes advantage of powers of two.
+inline size_t roundUpToMultipleOf(size_t divisor, size_t x)
+{
+    // TODO(caitp): ASSERT(divisor && !(divisor & (divisor - 1)));
+    size_t remainderMask = divisor - 1;
+    return (x + remainderMask) & ~remainderMask;
+}
+
+template<size_t divisor>
+inline size_t roundUpToMultipleOf(size_t x)
+{
+    static_assert(divisor && !(divisor & (divisor - 1)), "divisor must be a power of two!");
+    size_t remainderMask = divisor - 1;
+    return (x + remainderMask) & ~remainderMask;
+}
 
 }  // namespace twitchsw

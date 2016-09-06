@@ -8,7 +8,7 @@
 #include <list>
 #include <mutex>
 
-#include <obs.h>
+#include <obs.hpp>
 #include <obs-source.h>
 
 #include <twitchsw/string.h>
@@ -22,7 +22,7 @@ public:
 
     obs_properties_t* toProperties();
 
-    bool getTwitchCredentials(Ref<String>& key) const;
+    bool getTwitchCredentials(String& key) const;
 
     void connectSignalHandlers();
     void disconnectSignalHandlers();
@@ -31,8 +31,8 @@ public:
     void didLoadProperties(obs_data_t* settings);
     void updateGameTitleTypeahead(obs_data_t* settings);
 
-    Ref<String> game() const { return m_game; }
-    Ref<String> title() const { return m_title; }
+    String game() const { return m_game; }
+    String title() const { return m_title; }
 
     template <typename T>
     struct Setting {
@@ -46,8 +46,8 @@ public:
     static TSWSceneItem* fromSceneItem(obs_sceneitem_t* item);
 private:
     obs_source_t* m_source;
-    Ref<String> m_game;
-    Ref<String> m_title;
+    String m_game;
+    String m_title;
 };
 
 }  // namespace twitchsw

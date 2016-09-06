@@ -21,19 +21,14 @@ namespace twitchsw {
 //
 // WebView public API
 //
-WebView::WebView() {
-    m_data = nullptr;
-}
-
-WebView::WebView(WebView::Data* data)
-    : m_data(data)
-{
-    data->ref();
+WebView::WebView()
+    : m_impl(nullptr) {
 }
 
 WebView::~WebView() {
-    if (m_data && !m_data->deref())
-        delete m_data;
+    LOG(LOG_INFO, "[WebView] destroyed");
+    if (m_weakPtrs)
+        delete m_weakPtrs;
 }
 
 void WebView::initialize() {
@@ -44,41 +39,23 @@ void WebView::shutdown() {
     WebViewImpl::shutdown();
 }
 
-WebView::Data::~Data() {
-    for (auto p : m_weakPtrs)
-        *p = nullptr;
-    if (m_impl) {
-        m_impl->close();
-        m_impl = nullptr;
-    }
-}
-
 WebViewImpl* WebView::getOrCreateImpl() {
-    Data* data = getOrCreateData();
-    if (!data->m_impl) {
-        data->m_impl = new WebViewImpl();
-        data->m_impl->setTitle(data->m_title);
-    }
-    return data->m_impl;
-}
-
-WebView::Data* WebView::getOrCreateData() {
-    if (m_data)
-        return m_data;
-    m_data = new Data { nullptr };
-    return m_data;
+    if (LIKELY(m_impl))
+        return m_impl;
+    m_impl = new WebViewImpl();
+    m_impl->m_webView = this;
+    m_impl->setTitle(m_title);
+    return m_impl;
 }
 
 WebView& WebView::open(const std::string& url, const HttpRequestOptions& options) {
     WebViewImpl* p = getOrCreateImpl();
-    Data* data = m_data;
 
     // Will leak unless WebViewImpl calls the OnWebViewDestroyed callback.
-    data->ref();
-    p->setOnWebViewDestroyed([data]() {
-        if (!data->deref())
-            delete data;
-    });
+    //p->setOnWebViewDestroyed([data]() {
+    //    if (!data->deref())
+    //        delete data;
+    //});
     p->open(url, options);
 
     return *this;
@@ -92,58 +69,60 @@ WebView& WebView::close() {
 }
 
 WebView& WebView::setTitle(const std::string& title) {
-    Data* data = getOrCreateData();
-    WebViewImpl* impl = data->m_impl;
+    WebViewImpl* impl = m_impl;
+    m_title = title;
     if (impl)
         impl->setTitle(title);
-    data->m_title = title;
     return *this;
 }
 
 WebView& WebView::setOnRedirect(const OnRedirectCallback& callback) {
-    WebViewImpl* p = getOrCreateImpl();
-    p->setOnRedirect(callback);
-
+    getOrCreateImpl()->setOnRedirect(callback);
     return *this;
 }
 
 WebView& WebView::setOnComplete(const OnCompleteCallback& callback) {
     WebViewImpl* impl = getOrCreateImpl();
-    Data* data = m_data;
-    data->m_onComplete = callback;
-    impl->setOnComplete([data]() {
-        if (data->m_onComplete) {
-            WebView webview(data);
-            data->m_onComplete(webview);
-        }
+    m_onComplete = callback;
+    WeakPtr<WebView> refThis = createWeakPtr();
+    impl->setOnComplete([refThis]() {
+        // Caller of this callback should have a ref to WebView keeping the
+        // weak ref alive.
+        Ref<WebView> webView = *refThis.get();
+        if (webView->m_onComplete)
+            webView->m_onComplete(webView.get());
     });
     return *this;
 }
 
 WebView& WebView::setOnAbort(const OnAbortCallback& callback) {
     WebViewImpl* impl = getOrCreateImpl();
-    Data* data = m_data;
-    data->m_onAbort = callback;
-    impl->setOnAbort([data]() {
-        if (data->m_onAbort) {
-            WebView webview(data);
-            data->m_onAbort(webview);
-        }
+    m_onAbort = callback;
+    WeakPtr<WebView> refThis = createWeakPtr();
+    impl->setOnAbort([&refThis]() {
+        Ref<WebView> webView = *refThis.get();
+        if (webView->m_onAbort)
+            webView->m_onAbort(webView.get());
     });
     return *this;
 }
 
 WebView& WebView::show() {
-    if (impl()) {
-        auto window = impl()->nativeHandle();
+    if (m_impl) {
+        auto window = m_impl->nativeHandle();
         if (window != nullptr) {
             auto ui = obs_create_ui("webview", "webview", kOBS_UI_TYPE, nullptr, window);
-            impl()->show();
+            m_impl->show();
         }
-
     }
 
     return *this;
+}
+
+WeakPtr<WebView> WebView::createWeakPtr() {
+    if (m_weakPtrs == nullptr)
+        m_weakPtrs = new WeakPtrFactory<WebView>(this);
+    return m_weakPtrs->createWeakPtr();
 }
 
 }

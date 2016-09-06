@@ -14,13 +14,24 @@
 
 namespace twitchsw {
 
+// Model
+// SceneWatcherImpl
+//     - Holds pointers to Scene objects, but does not retain them
+// Scene
+//     - Holds pointers to obs_source_t and obs_sceneitem_t, but does not retain
+//       them.
+//
+// Held (but not retained) items are removed when signals are received from libobs,
+// preventing memory leaks.
+//
+// All SceneWatcher activity occurs on the main thread, in response to libobs signals.
 class SceneWatcherImpl;
-class SceneImpl : public RefCounted<SceneImpl> {
+class Scene : public RefCounted<Scene> {
 public:
-    explicit SceneImpl(SceneWatcherImpl* impl, obs_source_t* scene);
-    SceneImpl(const SceneImpl&) = delete;
-    SceneImpl(SceneImpl&&) = delete;
-    ~SceneImpl();
+    explicit Scene(SceneWatcherImpl* impl, obs_source_t* scene);
+    Scene(const Scene&) = delete;
+    Scene(Scene&&) = delete;
+    ~Scene();
 
     SceneWatcherImpl* impl() const { return m_impl; }
     obs_source_t* source() const { return m_source; }
@@ -31,6 +42,8 @@ public:
     void updateIfNeeded(bool force = false);
 
 private:
+    // SceneWatcherImpl's lifetime should always be longer than Scene instances,
+    // so this is not a RefPtr.
     SceneWatcherImpl* m_impl;
     obs_source_t* m_source;
     obs_sceneitem_t* m_item;
@@ -57,8 +70,6 @@ private:
     static void onActivate(void* userdata, calldata_t* calldata);
 };
 
-TSW_DECLARE_REF_CLASS(Scene, SceneImpl);
-
 class SceneWatcherImpl {
 public:
     SceneWatcherImpl();
@@ -69,19 +80,19 @@ public:
 
     bool isStreaming();
 
-    void setCurrentScene(Ref<Scene> scene) {
+    void setCurrentScene(PassRefPtr<Scene> scene) {
         m_currentScene = scene;
     }
 
     void scanForStreamingOutputs();
     void scanForStreamingServices();
-    bool getTwitchCredentials(Ref<String>& key);
+    bool getTwitchCredentials(String& key);
 
-    Ref<Scene> findScene(obs_source_t* source);
+    RefPtr<Scene> findScene(obs_source_t* source);
 
 private:
-    std::list<Scene> m_scenes;
-    Ref<Scene> m_currentScene;
+    std::list<RefPtr<Scene>> m_scenes;
+    RefPtr<Scene> m_currentScene;
     OBSWeakOutput m_streamingOutput;
     OBSWeakService m_streamingService;
 

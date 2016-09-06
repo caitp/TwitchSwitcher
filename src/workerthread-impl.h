@@ -17,7 +17,7 @@ namespace twitchsw {
 
 struct MessageData {
     WorkerThread::Message message;
-    Ref<EventData> param;
+    RefPtr<EventData> param = nullptr;
 };
 
 struct AuthStatus {
@@ -31,14 +31,13 @@ public:
 
     void start();
 
-    void postMessage(WorkerThread::Message message, EventData&& data = EventData(RefEmptyConstructor::Tag)) {
+    void postMessage(WorkerThread::Message message, PassRefPtr<EventData> data = nullptr) {
         if (m_thread == nullptr) return;
 
         bool wasEmpty;
         {
             std::lock_guard<std::mutex> lock(m_messageListMutex);
             wasEmpty = m_messageList.empty();
-            data.refIfNeeded();
             if (message <= WorkerThread::kLastPriviledgedMessage)
                 m_messageList.push_front({ message, data });
             else
@@ -55,7 +54,7 @@ private:
     std::mutex m_messageListMutex;
     std::list<MessageData> m_messageList;
     std::string m_accessToken;
-    WeakWebView m_currentWebView;
+    WeakPtr<WebView> m_currentWebView;
 
     void run();
 
@@ -65,8 +64,8 @@ private:
         std::unique_lock<std::mutex> lock(m_messageListMutex);
         while (m_messageList.empty())
             m_didReceiveMessage.wait(lock);
-        data = m_messageList.front();
-        data.param.refIfNeeded();
+        MessageData copy = m_messageList.front();
+        data = { copy.message, copy.param.leakRef() };
         m_messageList.pop_front();
         return true;
     }
@@ -88,7 +87,6 @@ private:
         if (!m_messageList.empty() ||
             m_didReceiveMessage.wait_for(lock, timeout_duration) == std::cv_status::no_timeout) {
             data = m_messageList.front();
-            data.param.refIfNeeded();
             m_messageList.pop_front();
             return true;
         }
@@ -99,8 +97,8 @@ private:
     bool handleMessage(MessageData& data);
 
     std::future<AuthStatus> authenticateIfNeeded();
-    bool update(UpdateEvent&& data);
-    bool updateInternal(const std::string& accessToken, const Ref<String> game, const Ref<String> title);
+    bool update(Ref<UpdateEvent> data);
+    bool updateInternal(const std::string& accessToken, String game, String title);
     void cleanup();
 };
 

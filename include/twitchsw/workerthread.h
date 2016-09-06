@@ -15,29 +15,37 @@ struct obs_output;
 
 namespace twitchsw {
 
-class EventDataImpl : public RefCounted<EventDataImpl> {
+class EventData : public ThreadSafeRefCounted<EventData> {
 public:
-    EventDataImpl() : RefCounted() {}
-    virtual ~EventDataImpl() {}
+    EventData() : ThreadSafeRefCounted() {}
+    virtual ~EventData() {}
 };
 
-TSW_DECLARE_REF_CLASS(EventData, EventDataImpl);
-
-class UpdateEventImpl : public EventDataImpl {
+class UpdateEvent : public EventData {
 public:
-    UpdateEventImpl(String&& game, String&& title);
-    ~UpdateEventImpl() override;
+    UpdateEvent(String&& game, String&& title)
+        : m_game(std::move(game))
+        , m_title(std::move(title))
+    {
+    }
 
-    TSW_BASIC_ALLOCATOR(UpdateEventImpl);
+    UpdateEvent(const String& game, const String& title)
+        : m_game(game)
+        , m_title(title)
+    {
+    }
 
-    Ref<String> game() const { return m_game; }
-    Ref<String> title() const { return m_title; }
+    ~UpdateEvent() override
+    {
+    }
+
+    String game() const { return m_game; }
+    String title() const { return m_title; }
 
 private:
-    Ref<String> m_game;
-    Ref<String> m_title;
+    String m_game;
+    String m_title;
 };
-TSW_DECLARE_REF_CLASS(UpdateEvent, UpdateEventImpl);
 
 class WorkerThreadImpl;
 class WorkerThread {
@@ -58,8 +66,7 @@ public:
     void terminate();
 
     // Post an "update" message to the worker thread, if the thread is started.
-    static void update(UpdateEvent& event);
-    static void update(UpdateEvent&& event);
+    static void update(Ref<UpdateEvent> event);
 
 private:
     static WorkerThreadImpl* m_impl;

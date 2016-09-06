@@ -138,6 +138,8 @@ private:
     // TODO(caitp): Refactor to only use a single global thread for MSHTML message loops.
     static DWORD WINAPI messagePumpThreadProc(LPVOID param);
 
+    RefPtr<WebView> m_webView; // Keep holder alive until WebViewImpl is destroyed
+
     static DWORD g_threadId;
     static HANDLE g_thread;
     CONDITION_VARIABLE m_conditionVariable;

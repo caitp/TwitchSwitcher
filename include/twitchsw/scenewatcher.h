@@ -20,7 +20,7 @@ public:
     void start();
     void terminate();
 
-    static bool getTwitchCredentials(Ref<String>& key);
+    static bool getTwitchCredentials(String& key);
 
 private:
     SceneWatcherImpl* m_impl = nullptr;

@@ -34,16 +34,10 @@ void WorkerThread::terminate() {
     m_impl = nullptr;
 }
 
-void WorkerThread::update(UpdateEvent& ref) {
+void WorkerThread::update(Ref<UpdateEvent> event) {
     if (!m_impl || !m_impl->m_thread) return;
-    m_impl->postMessage(WorkerThread::kUpdate, ref.cast<EventData>());
+    m_impl->postMessage(WorkerThread::kUpdate, event.ptr());
 }
-
-void WorkerThread::update(UpdateEvent&& ref) {
-    if (!m_impl || !m_impl->m_thread) return;
-    m_impl->postMessage(WorkerThread::kUpdate, ref.cast<EventData>());
-}
-
 
 //
 //
@@ -87,7 +81,7 @@ bool WorkerThreadImpl::handleMessage(MessageData& event) {
         return false;
 
     case WorkerThread::kUpdate:
-        if (!update(event.param.cast<UpdateEvent>()))
+        if (!update(adoptRef(*event.param).cast<UpdateEvent>()))
             return false;
         break;
     }
@@ -105,7 +99,7 @@ private:
     std::string m_reason;
 };
 
-bool WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<String> game, const Ref<String> title) {
+bool WorkerThreadImpl::updateInternal(const std::string& accessToken, String game, String title) {
     Http http;
     http.
         setHeader("Authorization", "OAuth " + accessToken).
@@ -141,26 +135,26 @@ bool WorkerThreadImpl::updateInternal(const std::string& accessToken, const Ref<
     }
 
     // FIXME: Use obs localization API
-    LOG(LOG_INFO, "Updating stream to game '%s' with title '%s'", game->c_str(), title->c_str());
+    LOG(LOG_INFO, "Updating stream to game '%s' with title '%s'", game.characters(), title.characters());
     std::string body;
     {
         // Create JSON object to send to Twitch.
         // https://github.com/justintv/Twitch-API/blob/master/v3_resources/channels.md#put-channelschannel
         using namespace rapidjson;
         CrtAllocator allocator;
-        StringBuffer buffer(&allocator, game->length() + title->length() + 256);
+        StringBuffer buffer(&allocator, game.length() + title.length() + 256);
         Writer<StringBuffer> writer(buffer, &allocator);
         writer.StartObject();
         writer.Key("channel", 7);
         writer.StartObject();
-        if (game->length()) {
+        if (game.length()) {
             writer.Key("game", 4);
-            writer.String(game->c_str(), game->length());
+            writer.String(game.characters(), game.length());
         }
 
-        if (title->length()) {
+        if (title.length()) {
             writer.Key("status", 6);
-            writer.String(title->c_str(), title->length());
+            writer.String(title.characters(), title.length());
         }
         writer.EndObject();
         writer.EndObject();
@@ -205,7 +199,7 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
         return future;
     }
 
-    Ref<String> key;
+    String key;
     if (!SceneWatcher::getTwitchCredentials(key)) {
         result->set_exception(std::make_exception_ptr(SimpleException("Could not retrieve Stream Key.")));
         return future;
@@ -213,7 +207,7 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
 
     Http http;
     http.
-        setHeader("Authorization", "OAuth " + std::string(key->c_str(), key->length())).
+        setHeader("Authorization", "OAuth " + key.toStdString()).
         setHeader("Client-Id", TSW_CLIENT_ID).
         setHeader("Content-Type", "application/json").
         setHeader("Accept", "application/vnd.twitchtv.v3+json").
@@ -244,10 +238,12 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
         return future;
     }
 
-    if (!m_currentWebView.isNull())
-        m_currentWebView.close();
+    if (!m_currentWebView.isNull()) {
+        m_currentWebView->close();
+        m_currentWebView = nullptr;
+    }
 
-    WebView webView;
+    Ref<WebView> webView = *adoptRef(new WebView());
     authRequest.setOnRedirect([this](const std::string& url, const std::string& body) {
         // Should gain access to authorization code here, if the URL looks a certain way...
         static const std::string redirectUri = "http://localhost";
@@ -264,7 +260,7 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
         }
         return OnRedirect::Follow;
     });
-    webView.setOnComplete([this, result](WebView& webView) {
+    webView->setOnComplete([this, result](WebView& webView) {
         if (this->m_accessToken.length()) {
             webView.close();
             if (this->m_accessToken.length())
@@ -283,25 +279,23 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
     return future;
 }
 
-bool WorkerThreadImpl::update(UpdateEvent&& data) {
-    Ref<UpdateEvent> event = data;
-
-    Ref<String> game = data->game();
-    Ref<String> title = data->title();
+bool WorkerThreadImpl::update(Ref<UpdateEvent> data) {
+    String game = data->game();
+    String title = data->title();
 
     auto accessTokenFuture = authenticateIfNeeded();
     while (true) {
         // Nested message loop, special casing the Update message.
-        MessageData newEvent;
-        if (waitForMessage(newEvent, std::chrono::milliseconds(300))) {
-            if (newEvent.message == WorkerThread::kUpdate) {
-                event = newEvent.param.cast<UpdateEvent>();
+        MessageData event;
+        if (waitForMessage(event, std::chrono::milliseconds(300))) {
+            if (event.message == WorkerThread::kUpdate) {
+                data = adoptRef(*event.param).cast<UpdateEvent>();
                 // When sign-in is complete, will use the event data from the
                 // most recent event.
                 game = data->game();
                 title = data->title();
             } else {
-                if (!handleMessage(newEvent))
+                if (!handleMessage(event))
                     return false;
             }
         }
@@ -330,20 +324,8 @@ bool WorkerThreadImpl::update(UpdateEvent&& data) {
 }
 
 void WorkerThreadImpl::cleanup() {
-    LOG(LOG_INFO, "WorkerThread::cleanup()");
     if (!m_currentWebView.isNull())
-        m_currentWebView.close();
+        m_currentWebView->close();
 }
-
-//
-//
-//
-UpdateEventImpl::UpdateEventImpl(String&& game, String&& title)
-    : EventDataImpl(), m_game(std::move(game)), m_title(std::move(title)) {
-}
-
-UpdateEventImpl::~UpdateEventImpl() {
-}
-
 
 }  // namespace twitchsw

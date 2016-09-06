@@ -5,10 +5,12 @@
 
 #pragma once
 
+#include <mutex>
 #include <string>
 
 #include <twitchsw/twitchsw.h>
 #include <twitchsw/http.h>
+#include <twitchsw/refs.h>
 
 namespace twitchsw {
 
@@ -22,8 +24,7 @@ typedef std::function<void()> _OnAbortCallback;
 typedef std::function<void(WebView&)> OnCompleteCallback;
 typedef std::function<void(WebView&)> OnAbortCallback;
 
-class WeakWebView;
-class WebView {
+class WebView : public ThreadSafeRefCounted<WebView> {
 public:
     explicit WebView();
     ~WebView();
@@ -54,70 +55,21 @@ public:
     WebView& close();
     WebView& setTitle(const std::string& title);
     const std::string& title() const {
-        static const std::string defaultTitle = TSW_WEBVIEW_DEFAULT_TITLE;
-        return m_data ? m_data->m_title : defaultTitle;
+        return m_title;
     }
 
+    WeakPtr<WebView> createWeakPtr();
+
 private:
-    friend class WeakWebView;
-    struct Data : public RefCounted<Data> {
-        Data(WebViewImpl* impl) : RefCounted<Data>(), m_impl(impl) {}
-        ~Data();
-        WebViewImpl* m_impl;
-        OnCompleteCallback m_onComplete;
-        OnAbortCallback m_onAbort;
-        std::string m_title = TSW_WEBVIEW_DEFAULT_TITLE;
-        std::list<Data**> m_weakPtrs;
-    };
-    Data* m_data;
-
-    WebView(Data* data);
-
     WebViewImpl* getOrCreateImpl();
-    Data* getOrCreateData();
+    WebViewImpl* m_impl;
+    OnCompleteCallback m_onComplete;
+    OnAbortCallback m_onAbort;
+    std::string m_title = TSW_WEBVIEW_DEFAULT_TITLE;
+    WeakPtrFactory<WebView>* m_weakPtrs = nullptr;
 
-    Data* data() { return m_data; }
-    const Data* data() const { return m_data; }
-    WebViewImpl* impl() { return m_data ? m_data->m_impl : nullptr; }
-    const WebViewImpl* impl() const { return m_data ? m_data->m_impl : nullptr; }
+    WebViewImpl* impl() { return m_impl; }
+    const WebViewImpl* impl() const { return m_impl; }
 };
 
-class WeakWebView {
-public:
-    WeakWebView()
-        : m_data(nullptr) {}
-    WeakWebView(WebView& webView)
-        : m_data(webView.getOrCreateData()) {
-        m_data->m_weakPtrs.push_back(&m_data);
-    }
-    ~WeakWebView() {
-        if (m_data)
-            m_data->m_weakPtrs.remove(&m_data);
-    }
-
-    bool isNull() const {
-        return m_data == nullptr;
-    }
-
-#define WebViewInvoke(METHOD, ...) \
-    do { \
-        if (m_data) { \
-            WebView webView(m_data); \
-            webView.METHOD(__VA_ARGS__); \
-        } \
-    } while (0)
-
-    // Currently, the only use case I have for this is `close`.
-    // TBD
-    WeakWebView& close() {
-        WebViewInvoke(close);
-        return *this;
-    }
-
-#undef WebViewInvoke
-
-private:
-    WebView::Data* m_data;
-};
-
-}
+}  // namespace twitchsw

@@ -59,7 +59,7 @@ MODULE_EXPORT bool obs_module_load(void) {
     // inherited.
     for (int i = 0; i < TwitchSwitcher::kNumSettings; ++i) {
         bool value = TwitchSwitcher::isEnabled((TwitchSwitcher::Setting)i);
-        TSW_UNUSED(value);
+        UNUSED(value);
     }
 
     // FIXME: Use obs localization API
@@ -85,8 +85,8 @@ namespace twitchsw {
 void TwitchSwitcher::prettyPrintJSON(const std::string& string) {
     return prettyPrintJSON(string.c_str(), string.length());
 }
-void TwitchSwitcher::prettyPrintJSON(Ref<String> string) {
-    return prettyPrintJSON(string->c_str(), string->length());
+void TwitchSwitcher::prettyPrintJSON(const String& string) {
+    return prettyPrintJSON(string.characters(), string.length());
 }
 void TwitchSwitcher::prettyPrintJSON(const char* str, size_t length) {
 #ifdef _DEBUG

@@ -128,6 +128,7 @@ TSWSceneItem::TSWSceneItem(obs_data_t* settings, obs_source_t* source)
     m_title = String();
     g_sceneItems.push_back(this);
     connectSignalHandlers();
+    LOG(LOG_INFO, "TSWSceneItem holding source %p", source);
 }
 
 TSWSceneItem::~TSWSceneItem() {
@@ -161,9 +162,9 @@ void TSWSceneItem::disconnectSignalHandlers() {
 void TSWSceneItem::didUpdateProperties(obs_data_t* settings) {
     for (int i = 0; i < arraysize(g_stringSettings); ++i) {
         auto setting = g_stringSettings[i];
-        Ref<String>* result = reinterpret_cast<Ref<String>*>((reinterpret_cast<char*>(this) + setting.offset));
+        String* result = reinterpret_cast<String*>((reinterpret_cast<char*>(this) + setting.offset));
         String newValue = String(obs_data_get_string(settings, setting.name));
-        if (!newValue->equals(*result)) {
+        if (!newValue.equals(*result)) {
             *result = newValue;
             if (i == kGameSetting) {
                 updateGameTitleTypeahead(settings);
@@ -175,7 +176,7 @@ void TSWSceneItem::didUpdateProperties(obs_data_t* settings) {
 void TSWSceneItem::didLoadProperties(obs_data_t* settings) {
     for (int i = 0; i < arraysize(g_stringSettings); ++i) {
         auto setting = g_stringSettings[i];
-        Ref<String>* result = reinterpret_cast<Ref<String>*>((reinterpret_cast<char*>(this) + setting.offset));
+        String* result = reinterpret_cast<String*>((reinterpret_cast<char*>(this) + setting.offset));
         *result = String(obs_data_get_string(settings, setting.name));
     }
 }
@@ -196,7 +197,7 @@ void TSWSceneItem::updateGameTitleTypeahead(obs_data_t* settings) {
 
     lastTypeaheadTime = now;
 
-    Ref<String> key;
+    String key;
     if (!getTwitchCredentials(key))
         return;
 
@@ -204,12 +205,12 @@ void TSWSceneItem::updateGameTitleTypeahead(obs_data_t* settings) {
 
     auto response = http.
         request().
-        setHeader("Authorization", "OAuth " + std::string(key->c_str(), key->length())).
+        setHeader("Authorization", "OAuth " + key.toStdString()).
         setHeader("Client-Id", TSW_CLIENT_ID).
         setHeader("Content-Type", "application/json").
         setHeader("Accept", "application/vnd.twitchtv.v3+json").
         setHeader("charsets", "utf-8").
-        setParameter("q", std::string(m_game->c_str(), m_game->length())).
+        setParameter("q", game().toStdString()).
         setParameter("type", "suggest").
         get("https://api.twitch.tv/kraken/search/games");
 
@@ -267,7 +268,7 @@ void TSWSceneItem::updateGameTitleTypeahead(obs_data_t* settings) {
 #pragma endregion TODO
 }
 
-bool TSWSceneItem::getTwitchCredentials(Ref<String>& key) const {
+bool TSWSceneItem::getTwitchCredentials(String& key) const {
     return SceneWatcher::getTwitchCredentials(key);
 }
 
