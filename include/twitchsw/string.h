@@ -19,6 +19,7 @@ public:
     String() { }
     String(const char* characters);
     String(const char* characters, unsigned length);
+    String(const std::string& string);
     ALWAYS_INLINE ~String() { }
 
     String(StringImpl& impl)
@@ -43,7 +44,7 @@ public:
 
     enum ConstructFromLiteralTag { ConstructFromLiteral };
     template <unsigned N>
-    String(const char (&characters)[N], ConstructFromLiteralTag)
+    String(const char(&characters)[N], ConstructFromLiteralTag)
         : m_impl(StringImpl::createFromLiteral<N>(characters))
     {
     }
@@ -64,7 +65,7 @@ public:
     }
     String& operator=(String&& other) {
         m_impl = std::move(other.m_impl);
-        return* this;
+        return*this;
     }
 
     void swap(String& o) { m_impl.swap(o.m_impl); }

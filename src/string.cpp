@@ -21,4 +21,10 @@ String::String(const char* characters, unsigned length)
         m_impl = StringImpl::create(characters, length);
 }
 
+String::String(const std::string& string)
+{
+    if (string.length())
+        m_impl = StringImpl::create(string.c_str(), string.length());
+}
+
 }  // namespace twitchsw
