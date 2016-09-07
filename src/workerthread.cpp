@@ -260,10 +260,16 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
         }
         return OnRedirect::Follow;
     });
-    bool gotAuthToken = false;
-    webView->setOnComplete([this, result, &gotAuthToken](WebView& webView) {
+
+    struct RequestState : public RefCounted<RequestState> {
+        bool gotAuthToken = false;
+    };
+
+    RefPtr<RequestState> requestState = new RequestState;
+    webView->setOnComplete([this, result, requestState](WebView& webView, String url) {
         if (this->m_accessToken.length()) {
-            gotAuthToken = true;
+            LOG(LOG_INFO, "gotAuthToken: %s\n", this->m_accessToken.c_str());
+            requestState->gotAuthToken = true;
             webView.close();
             if (this->m_accessToken.length())
                 result->set_value({ HttpResponse(200, std::string()), m_accessToken });
@@ -271,9 +277,9 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
                 result->set_exception(std::make_exception_ptr(SimpleException("Did not get authorization token")));
         }
     }).
-        setOnAbort([result, &gotAuthToken](WebView& webView) {
+        setOnAbort([result, requestState](WebView& webView, String url) {
         // Prevent hangs when a response is not going to happen.
-        if (!gotAuthToken)
+        if (!requestState->gotAuthToken)
             result->set_exception(std::make_exception_ptr(SimpleException("Request aborted")));
     }).
         setTitle("Please sign in"). // FIXME: Use obs localization API
@@ -283,9 +289,10 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
 }
 
 bool WorkerThreadImpl::update(Ref<UpdateEvent> data) {
+    String stream = data->stream();
     String game = data->game();
     String title = data->title();
-
+    LOG(LOG_DEBUG, "Updating stream '%s'\n      Game = '%s'\n    Status = '%s'", stream.characters(), game.characters(), title.characters());
     auto accessTokenFuture = authenticateIfNeeded();
     while (true) {
         // Nested message loop, special casing the Update message.

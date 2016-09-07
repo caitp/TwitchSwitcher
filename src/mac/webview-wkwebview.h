@@ -38,19 +38,19 @@ public:
     void show();
 
     void setOnRedirect(const OnRedirectCallback& callback);
-    void setOnComplete(const _OnCompleteCallback& callback);
-    void setOnWebViewDestroyed(const _OnWebViewDestroyed& callback);
-    void setOnAbort(const _OnAbortCallback& callback);
+    void setOnComplete(const OnCompleteCallback& callback);
+    void setOnAbort(const OnAbortCallback& callback);
 
     void* nativeHandle();
 
     // Helpers for WebViewController
     const OnRedirectCallback& onRedirect() const { return m_onRedirect; }
-    const _OnCompleteCallback& onComplete() const { return m_onComplete; }
-    const _OnWebViewDestroyed& onDestroyed() const { return m_onDestroyed; }
-    const _OnAbortCallback& onAbort() const { return m_onAbort; }
+    const OnCompleteCallback& onComplete() const { return m_onComplete; }
+    const OnAbortCallback& onAbort() const { return m_onAbort; }
 
     void didClose();
+    inline Ref<WebView> webView() { return Ref<WebView>(*m_webView.get()); }
+    inline bool hasWebView() const { return !m_webView.isNull(); }
 
 protected:
     bool ensureUI();
@@ -62,9 +62,8 @@ private:
     NSWindow* m_window;
     NSWindowController* m_windowController;
     OnRedirectCallback m_onRedirect;
-    _OnCompleteCallback m_onComplete;
-    _OnWebViewDestroyed m_onDestroyed;
-    _OnAbortCallback m_onAbort;
+    OnCompleteCallback m_onComplete;
+    OnAbortCallback m_onAbort;
 
     std::string m_title;
 };

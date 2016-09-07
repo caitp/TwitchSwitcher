@@ -112,9 +112,11 @@
     LOG(LOG_INFO, "Failed to load `%s`: %s", url.characters(), reason.characters());
     auto impl = self.holder;
     if (impl) {
+        if (!impl->hasWebView()) return;
+        twitchsw::Ref<twitchsw::WebView> webView = impl->webView();
         auto onComplete = impl->onComplete();
         if (onComplete)
-            onComplete();
+            onComplete(webView.get(), url);
     }
 }
 
@@ -127,21 +129,28 @@
     LOG(LOG_INFO, "WebVewController: webView:%p didFailNavigation:%p withError:%s", webView, navigation, reason.characters());
     auto impl = self.holder;
     if (impl) {
+        if (!impl->hasWebView()) return;
         auto onComplete = impl->onComplete();
-        if (onComplete)
-            onComplete();
+        if (onComplete) {
+            twitchsw::Ref<twitchsw::WebView> webView = impl->webView();
+            twitchsw::String url = [self.webView.URL.absoluteString UTF8String];
+            onComplete(webView.get(), url);
+        }
     }
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation
 {
-    std::string url = [webView.URL.absoluteString UTF8String];
-
     auto impl = self.holder;
     if (impl) {
+        if (!impl->hasWebView()) return;
         auto onComplete = impl->onComplete();
-        if (onComplete)
-            onComplete();
+        if (onComplete) {
+            twitchsw::Ref<twitchsw::WebView> webView = impl->webView();
+            twitchsw::String url = [self.webView.URL.absoluteString UTF8String];
+            LOG(LOG_INFO, "Finished navigation to %s", url.characters());
+            onComplete(webView.get(), url);
+        }
     }
 }
 
@@ -171,6 +180,16 @@
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
 {
+}
+
+- (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
+    NSURL *url = navigationAction.request.URL;
+    NSString *hostname = @"localhost";
+    if ([url.host isEqualToString:hostname] ) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    }
+    decisionHandler(WKNavigationActionPolicyAllow);
 }
 
 @end

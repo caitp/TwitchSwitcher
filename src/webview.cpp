@@ -4,6 +4,7 @@
 // software.
 
 #include <twitchsw/webview.h>
+#include <twitchsw/string.h>
 
 #ifdef TSW_WEBVIEW_WIN32
 #include "windows/webview-windows.h"
@@ -26,7 +27,6 @@ WebView::WebView()
 }
 
 WebView::~WebView() {
-    LOG(LOG_INFO, "[WebView] destroyed");
     if (m_weakPtrs)
         delete m_weakPtrs;
 }
@@ -51,13 +51,6 @@ WebViewImpl* WebView::getOrCreateImpl() {
 WebView& WebView::open(const std::string& url, const HttpRequestOptions& options) {
     WebViewImpl* p = getOrCreateImpl();
 
-    // Will leak unless WebViewImpl calls the OnWebViewDestroyed callback.
-    WeakPtr<WebView> weakThis = createWeakPtr();
-    p->setOnWebViewDestroyed([weakThis]() {
-        Ref<WebView> webView = *weakThis.get();
-        if (webView->m_onAbort)
-            webView->m_onAbort(webView.get());
-    });
     p->open(url, options);
 
     return *this;
@@ -85,27 +78,13 @@ WebView& WebView::setOnRedirect(const OnRedirectCallback& callback) {
 
 WebView& WebView::setOnComplete(const OnCompleteCallback& callback) {
     WebViewImpl* impl = getOrCreateImpl();
-    m_onComplete = callback;
-    WeakPtr<WebView> refThis = createWeakPtr();
-    impl->setOnComplete([refThis]() {
-        // Caller of this callback should have a ref to WebView keeping the
-        // weak ref alive.
-        Ref<WebView> webView = *refThis.get();
-        if (webView->m_onComplete)
-            webView->m_onComplete(webView.get());
-    });
+    impl->m_onComplete = callback;
     return *this;
 }
 
 WebView& WebView::setOnAbort(const OnAbortCallback& callback) {
     WebViewImpl* impl = getOrCreateImpl();
-    m_onAbort = callback;
-    WeakPtr<WebView> refThis = createWeakPtr();
-    impl->setOnAbort([&refThis]() {
-        Ref<WebView> webView = *refThis.get();
-        if (webView->m_onAbort)
-            webView->m_onAbort(webView.get());
-    });
+    impl->m_onAbort = callback;
     return *this;
 }
 

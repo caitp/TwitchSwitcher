@@ -340,11 +340,11 @@ void Scene::updateIfNeeded(bool force) {
     if (!force && TwitchSwitcher::isDisabled(TwitchSwitcher::kUpdateWithoutStreaming) && !this->m_impl->isStreaming())
         return;
 
+    String scene = obs_source_get_name(m_source);
     String game = item->game();
     String title = item->title();
     // FIXME: Use obs localization API
-    LOG(LOG_DEBUG, "Updating stream '%s'", obs_source_get_name(m_source));
-    WorkerThread::update(adoptRef(*new UpdateEvent(game, title)));
+    WorkerThread::update(*new UpdateEvent(scene, game, title));
 }
 
 //

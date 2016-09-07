@@ -3,9 +3,10 @@
 // can be found in the LICENSE file, which must be distributed with this
 // software.
 
-#include "mac/webview-wkwebview.h"
-
 #ifdef TSW_WEBVIEW_WKWEBVIEW
+
+#include <twitchsw/string.h>
+#include "mac/webview-wkwebview.h"
 
 namespace twitchsw {
 
@@ -105,9 +106,6 @@ void WebViewImpl::show()
     dispatch_async(dispatch_get_main_queue(), ^{
         [windowController showWindow:nil];
     });
-
-    //[m_window makeKeyAndOrderFront:m_controller];
-    //[NSApp activateIgnoringOtherApps:YES];
 }
 
 void WebViewImpl::setOnRedirect(const OnRedirectCallback& callback)
@@ -115,17 +113,12 @@ void WebViewImpl::setOnRedirect(const OnRedirectCallback& callback)
     m_onRedirect = callback;
 }
 
-void WebViewImpl::setOnComplete(const _OnCompleteCallback& callback)
+void WebViewImpl::setOnComplete(const OnCompleteCallback& callback)
 {
     m_onComplete = callback;
 }
 
-void WebViewImpl::setOnWebViewDestroyed(const _OnWebViewDestroyed& callback)
-{
-    m_onDestroyed = callback;
-}
-
-void WebViewImpl::setOnAbort(const _OnAbortCallback& callback)
+void WebViewImpl::setOnAbort(const OnAbortCallback& callback)
 {
     m_onAbort = callback;
 }
@@ -133,8 +126,10 @@ void WebViewImpl::setOnAbort(const _OnAbortCallback& callback)
 // Helpers for WebViewController
 void WebViewImpl::didClose()
 {
-    if (m_onDestroyed)
-        m_onDestroyed();
+    if (m_onAbort) {
+        String url = [m_controller.webView.URL.absoluteString UTF8String];
+        m_onAbort(*m_webView.get(), url);
+    }
     m_webView = nullptr;
 }
 

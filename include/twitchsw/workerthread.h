@@ -23,14 +23,16 @@ public:
 
 class UpdateEvent : public EventData {
 public:
-    UpdateEvent(String&& game, String&& title)
-        : m_game(std::move(game))
+    UpdateEvent(String&& scene, String&& game, String&& title)
+        : m_scene(std::move(scene))
+        , m_game(std::move(game))
         , m_title(std::move(title))
     {
     }
 
-    UpdateEvent(const String& game, const String& title)
-        : m_game(game)
+    UpdateEvent(const String& scene, const String& game, const String& title)
+        : m_scene(scene)
+        , m_game(game)
         , m_title(title)
     {
     }
@@ -39,10 +41,12 @@ public:
     {
     }
 
+    String stream() const { return m_scene; }
     String game() const { return m_game; }
     String title() const { return m_title; }
 
 private:
+    String m_scene;
     String m_game;
     String m_title;
 };

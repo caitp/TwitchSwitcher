@@ -18,11 +18,8 @@ namespace twitchsw {
 
 class WebViewImpl;
 class WebView;
-typedef std::function<void()> _OnWebViewDestroyed;
-typedef std::function<void()> _OnCompleteCallback;
-typedef std::function<void()> _OnAbortCallback;
-typedef std::function<void(WebView&)> OnCompleteCallback;
-typedef std::function<void(WebView&)> OnAbortCallback;
+typedef std::function<void(WebView&, String url)> OnCompleteCallback;
+typedef std::function<void(WebView&, String url)> OnAbortCallback;
 
 class WebView : public ThreadSafeRefCounted<WebView> {
 public:
@@ -63,8 +60,6 @@ public:
 private:
     WebViewImpl* getOrCreateImpl();
     WebViewImpl* m_impl;
-    OnCompleteCallback m_onComplete;
-    OnAbortCallback m_onAbort;
     std::string m_title = TSW_WEBVIEW_DEFAULT_TITLE;
     WeakPtrFactory<WebView>* m_weakPtrs = nullptr;
 
