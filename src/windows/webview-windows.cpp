@@ -206,6 +206,7 @@ void WebViewImpl::close() {
 void WebViewImpl::open(const std::string& url, const HttpRequestOptions& options) {
     if (!ensureUI() || !m_content)
         return;
+    m_url = url;
     if (options.onRedirect())
         m_onRedirect = options.onRedirect();
     return m_content->open(url, options);
@@ -342,13 +343,13 @@ LRESULT WebViewImpl::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         // `this` may/should be invalid at this point.
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)nullptr);
 
-        auto onDestroy = m_onWebViewDestroyed;
+        auto onAbort = m_onAbort;
 
         // Prevent retaining WebView
-        RefPtr<WebView> webView = m_webView;
+        Ref<WebView> webView = *m_webView.get();
         m_webView = nullptr;
-        if (onDestroy)
-            onDestroy();
+        if (onAbort)
+            onAbort(webView.get(), m_url);
         WakeConditionVariable(&m_conditionVariable);
         break;
     }
@@ -615,12 +616,16 @@ HRESULT STDMETHODCALLTYPE WebContent::QueryInterface(REFIID riid, void** result)
 HRESULT STDMETHODCALLTYPE WebContent::Invoke(DISPID member, REFIID riid, LCID lcid, WORD flags, DISPPARAMS* params, VARIANT* result, EXCEPINFO* excepInfo, UINT* argErr) {
     switch (member) {
     case DISPID_BEFORENAVIGATE2: {
-        std::string url = utf16ToUtf8(COM::getParameter<VT_BSTR | TSW_VARIANTREF>(params, 1));
+        String url = utf16ToUtf8(COM::getParameter<VT_BSTR | TSW_VARIANTREF>(params, 1));
         m_isNavigating = true;
         if (m_impl && m_impl->m_onRedirect) {
             auto onRedirect = m_impl->m_onRedirect;
             std::string body;
-            OnRedirect result = onRedirect(url, std::string());
+            m_impl->m_url = url;
+            // TODO(caitp): ASSERT(m_impl->m_webView)
+            // Retain the webview through the two potential callbacks.
+            Ref<WebView> webView = *m_impl->m_webView.get();
+            OnRedirect result = onRedirect(url.toStdString(), std::string());
             if (result != OnRedirect::Follow) {
                 bool* cancel = COM::getParameter<VT_BOOL | VT_BYREF>(params, 6);
                 *cancel = true;
@@ -628,7 +633,7 @@ HRESULT STDMETHODCALLTYPE WebContent::Invoke(DISPID member, REFIID riid, LCID lc
                 m_didFinishRequest = true;
                 if (m_impl && m_impl->m_onComplete) {
                     auto onComplete = m_impl->m_onComplete;
-                    onComplete();
+                    onComplete(webView.get(), url);
                 }
                 // Navigation was cancelled, so notify the caller.
             }
@@ -638,9 +643,10 @@ HRESULT STDMETHODCALLTYPE WebContent::Invoke(DISPID member, REFIID riid, LCID lc
     case DISPID_DOCUMENTCOMPLETE: {
         m_isNavigating = false;
         if (!m_didFinishRequest) {
-            if (m_impl && m_impl->m_onComplete) {
+            if (m_impl && m_impl->m_onComplete && m_impl->m_webView) {
+                Ref<WebView> webView = *m_impl->m_webView.get();
                 auto onComplete = m_impl->m_onComplete;
-                onComplete();
+                onComplete(webView.get(), m_impl->m_url);
             }
             m_didFinishRequest = true;
         }

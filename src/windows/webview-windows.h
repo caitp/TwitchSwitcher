@@ -19,6 +19,8 @@
 #include "windows/COleInPlaceSite.h"
 #include "windows/COleInPlaceFrame.h"
 
+#include <twitchsw/string.h>
+
 #define TSW_WEBVIEW_WNDCLASS "TSW.WebView"
 
 namespace twitchsw {
@@ -99,19 +101,15 @@ public:
         return 0;
     }
 
-    void setOnWebViewDestroyed(const _OnWebViewDestroyed& callback) {
-        m_onWebViewDestroyed = callback;
-    }
-
     void setOnRedirect(const OnRedirectCallback& callback) {
         m_onRedirect = callback;
     }
 
-    void setOnComplete(const _OnCompleteCallback& callback) {
+    void setOnComplete(const OnCompleteCallback& callback) {
         m_onComplete = callback;
     }
 
-    void setOnAbort(const _OnAbortCallback& callback) {
+    void setOnAbort(const OnAbortCallback& callback) {
         m_onAbort = callback;
     }
 
@@ -150,10 +148,10 @@ private:
     WebContent* m_content;
     bool m_showScrollBars;
     std::string m_title;
+    String m_url;
     OnRedirectCallback m_onRedirect;
-    _OnWebViewDestroyed m_onWebViewDestroyed;
-    _OnCompleteCallback m_onComplete;
-    _OnAbortCallback m_onAbort;
+    OnCompleteCallback m_onComplete;
+    OnAbortCallback m_onAbort;
 };
 
 }
