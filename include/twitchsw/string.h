@@ -16,7 +16,7 @@ namespace twitchsw {
 
 class String {
 public:
-    String() { LOG(LOG_INFO, "String() --- %p", m_impl.get()); }
+    String() { }
     String(const char* characters);
     String(const char* characters, unsigned length);
     ALWAYS_INLINE ~String() { }
@@ -60,12 +60,10 @@ public:
 
     String& operator=(const String& other) {
         m_impl = other.m_impl;
-        LOG(LOG_INFO, "String::operator=() --- %p", m_impl.get());
         return *this;
     }
     String& operator=(String&& other) {
         m_impl = std::move(other.m_impl);
-        LOG(LOG_INFO, "String::operator=() --- %p (%p)", m_impl.get(), other.m_impl.get());
         return* this;
     }
 
