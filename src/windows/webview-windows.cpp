@@ -36,7 +36,9 @@
 #endif
 
 enum ThreadMessages {
-    kCloseWebViewUI = WM_USER + 1,
+    // Use WM_USER + 1000, as WM_USER + 1 seems to be sent to this module by another project
+    // (obs-studio, perhaps?)
+    kCloseWebViewUI = WM_USER + 1000,
     kCreateWebViewUI,
     kSetWebViewTitle,
 };
@@ -616,8 +618,14 @@ HRESULT STDMETHODCALLTYPE WebContent::QueryInterface(REFIID riid, void** result)
 HRESULT STDMETHODCALLTYPE WebContent::Invoke(DISPID member, REFIID riid, LCID lcid, WORD flags, DISPPARAMS* params, VARIANT* result, EXCEPINFO* excepInfo, UINT* argErr) {
     switch (member) {
     case DISPID_BEFORENAVIGATE2: {
+        /* BeforeNavigate2(IDispatch* dispatch, BSTR& url, INT flags, targetFrameName, BSTR postData, BSTR headers, BOOL& cancel) */
         String url = utf16ToUtf8(COM::getParameter<VT_BSTR | TSW_VARIANTREF>(params, 1));
         m_isNavigating = true;
+
+        // Avoid redirect callback for weird ieframe nonsense
+        if (url.startsWith("res://ieframe.dll"))
+            break;
+
         if (m_impl && m_impl->m_onRedirect) {
             auto onRedirect = m_impl->m_onRedirect;
             std::string body;
@@ -660,6 +668,17 @@ HRESULT STDMETHODCALLTYPE WebContent::Invoke(DISPID member, REFIID riid, LCID lc
         result->vt = VT_I4;
         result->lVal = DLCTL_DLIMAGES | DLCTL_VIDEOS | DLCTL_BGSOUNDS | DLCTL_SILENT;
         break;
+
+    case DISPID_FILEDOWNLOAD: {
+        /* FileDownload(BOOL isActiveDocument, BOOL& cancel) */
+        bool isActiveDocument = COM::getParameter<VT_BOOL>(params, 0);
+        bool* cancel = COM::getParameter<VT_BOOL | VT_BYREF>(params, 1);
+
+        // Avoid downloading files unrelated to the current document...
+        if (!isActiveDocument)
+            *cancel = true;
+        break;
+    }
 
     default:
         return DISP_E_MEMBERNOTFOUND;
