@@ -271,11 +271,8 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
             LOG(LOG_INFO, "gotAuthToken: %s\n", this->m_accessToken.c_str());
             requestState->gotAuthToken = true;
             webView.close();
-        }
-        if (this->m_accessToken.length())
             result->set_value({ HttpResponse(200, std::string()), m_accessToken });
-        else
-            result->set_exception(std::make_exception_ptr(SimpleException("Did not get authorization token")));
+        }
     }).
         setOnAbort([result, requestState](WebView& webView, String url) {
         // Prevent hangs when a response is not going to happen.
