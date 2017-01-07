@@ -113,6 +113,8 @@ bool WorkerThreadImpl::updateInternal(const std::string& accessToken, String gam
         request().
         //setParameter("client_id", TSW_CLIENT_ID).
         //setParameter("oauth_token", accessToken).
+        setHeader("Content-Type", "application/json").
+        setHeader("Accept", "application/vnd.twitchtv.v3+json").
         get("https://api.twitch.tv/kraken/channel");
 
     if (response.status() != 200)
@@ -209,8 +211,6 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
     http.
         setHeader("Authorization", "OAuth " + key.toStdString()).
         setHeader("Client-Id", TSW_CLIENT_ID).
-        setHeader("Content-Type", "application/json").
-        setHeader("Accept", "application/vnd.twitchtv.v3+json").
         setHeader("charsets", "utf-8");
 
     // Get the channel for the authenticated user. I don't do anything with this other than get your channel name.
@@ -243,8 +243,10 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
         m_currentWebView = nullptr;
     }
 
+    HttpRequestOptions signinRequest = http.request();
+
     Ref<WebView> webView = *adoptRef(new WebView());
-    authRequest.setOnRedirect([this](const std::string& url, const std::string& body) {
+    signinRequest.setOnRedirect([this](const std::string& url, const std::string& body) {
         // Should gain access to authorization code here, if the URL looks a certain way...
         static const std::string redirectUri = "http://localhost";
         if (std::equal(redirectUri.begin(), redirectUri.end(), url.begin())) {
@@ -280,7 +282,7 @@ std::future<AuthStatus> WorkerThreadImpl::authenticateIfNeeded() {
             result->set_exception(std::make_exception_ptr(SimpleException("Request aborted")));
     }).
         setTitle("Please sign in"). // FIXME: Use obs localization API
-        open(authUrl, authRequest).show();
+        open(authUrl, signinRequest).show();
     m_currentWebView = webView;
     return future;
 }
