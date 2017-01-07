@@ -618,8 +618,9 @@ HRESULT STDMETHODCALLTYPE WebContent::QueryInterface(REFIID riid, void** result)
 HRESULT STDMETHODCALLTYPE WebContent::Invoke(DISPID member, REFIID riid, LCID lcid, WORD flags, DISPPARAMS* params, VARIANT* result, EXCEPINFO* excepInfo, UINT* argErr) {
     switch (member) {
     case DISPID_BEFORENAVIGATE2: {
-        /* BeforeNavigate2(IDispatch* dispatch, BSTR& url, INT flags, targetFrameName, BSTR postData, BSTR headers, BOOL& cancel) */
+        /* BeforeNavigate2(IDispatch* dispatch, BSTR& url, INT flags, BSTR& targetFrameName, BSTR postData, BSTR headers, BOOL& cancel) */
         String url = utf16ToUtf8(COM::getParameter<VT_BSTR | TSW_VARIANTREF>(params, 1));
+        String headers = utf16ToUtf8(COM::getParameter<VT_BSTR | TSW_VARIANTREF>(params, 5));
         m_isNavigating = true;
 
         // Avoid redirect callback for weird ieframe nonsense
@@ -677,6 +678,31 @@ HRESULT STDMETHODCALLTYPE WebContent::Invoke(DISPID member, REFIID riid, LCID lc
         // Avoid downloading files unrelated to the current document...
         if (!isActiveDocument)
             *cancel = true;
+        break;
+    }
+
+    case DISPID_NAVIGATEERROR: {
+        /* NavigateError(IDispatch* dispatch, BSTR& url, BSTR& targetFrameName, INT statusCode, BOOL& cancel)
+           Fired to indicate the a binding error has occured */
+        String url = utf16ToUtf8(COM::getParameter<VT_BSTR | TSW_VARIANTREF>(params, 1));
+        String targetFrameName = utf16ToUtf8(COM::getParameter<VT_BSTR | TSW_VARIANTREF>(params, 2));
+        int status = COM::getParameter<VT_I4 | TSW_VARIANTREF>(params, 3);
+        bool* cancel = COM::getParameter<VT_BOOL | VT_BYREF>(params, 4);
+        LOG(LOG_WARNING, "Navigation failed with status %d. Please file a bug at https://github.com/caitp/TwitchSwitch.", status);
+        break;
+    }
+    case DISPID_PRIVACYIMPACTEDSTATECHANGE: {
+        // Fired when the user's browsing experience is impacted
+        break;
+    }
+
+    case DISPID_NEWPROCESS: {
+        // Fired when a navigation must be redirected due to Protected Mode
+        break;
+    }
+    case DISPID_THIRDPARTYURLBLOCKED: {
+        String url = utf16ToUtf8(COM::getParameter<VT_BSTR | TSW_VARIANTREF>(params, 0));
+        LOG(LOG_WARNING, "Blocked access to third party URL: %s", url.characters());
         break;
     }
 
@@ -836,6 +862,6 @@ DWORD WINAPI WebViewImpl::messagePumpThreadProc(LPVOID param) {
     return 0;
 }
 
-}
+}  // namespace twitchsw
 
 #endif
