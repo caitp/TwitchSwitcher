@@ -465,8 +465,8 @@ HWND WebViewImpl::create(HINSTANCE hInstance, UINT x, UINT y, UINT width, UINT h
 HWND WebViewImpl::createInternal() {
     UINT screenWidth = GetSystemMetrics(SM_CXMAXIMIZED);
     UINT screenHeight = GetSystemMetrics(SM_CYMAXIMIZED);
-    UINT width = screenWidth / 3;
-    UINT height = screenHeight / 3;
+    UINT width = (screenWidth / 3) * 2;
+    UINT height = (screenHeight / 3) * 2;
     UINT x = (screenWidth - width) / 2;
     UINT y = (screenHeight - height) / 2;
     HWND hwnd = create(GetModuleHandle(NULL), x, y, width, height, true);
