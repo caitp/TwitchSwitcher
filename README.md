@@ -1,8 +1,8 @@
-##TwitchSwitcher
+## TwitchSwitcher
 
 A plugin for [obs-studio](https://github.com/jp9000/obs-studio), which enables automatically Switching the Twitch.tv channel status and game when switching scenes.
 
-##Build
+## Build
 
 1. Install [CMake](https://cmake.org/)
 2. Check out and build [obs-studio sources](https://github.com/jp9000/obs-studio) [instructions](https://github.com/jp9000/obs-studio/wiki/Install-Instructions)
@@ -15,13 +15,13 @@ A plugin for [obs-studio](https://github.com/jp9000/obs-studio), which enables a
 
 TwitchSwitcher depends on modern C++ features, such as lambdas and std::promise. Remember to use a modern libc++ implementation, or a modern version of Visual Studio, to build this thing.
 
-##Usage
+## Usage
 
 This plugin adds a new Scene Item to obs-studio, which contains properties specifying a game name and channel status (or title). When switching to a scene with such a scene item, a request is sent to the Twitch API to update the channel with those fields. The fields are optional, and if blank, will not be included in the request to the server.
 
 So, change scenes, change your twitch status, basically. As the obs-studio API progresses, more useful ways to use this may present themselves and make for a better plugin.
 
-##License
+## License
 
 Licensed under the Apache 2.0 license. See [LICENSE](LICENSE) for details.
 
